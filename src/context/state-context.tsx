@@ -56,7 +56,7 @@ interface StateContextProps {
   removeDontRule: (rule: string) => void;
   addAgent: (agent: Omit<Agent, "id" | "linkedBrainId">) => void;
   updateAgent: (agent: Agent) => void;
-  sendPlaygroundMessage: (agentId: string, text: string) => Promise<void>;
+  sendPlaygroundMessage: (agentId: string, text: string, channel?: string) => Promise<string | undefined>;
   clearPlaygroundHistory: (agentId: string) => void;
   approveTrainingItem: (id: string) => void;
   improveTrainingItem: (id: string, correction: string) => void;
@@ -269,7 +269,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // Play Ground Messaging
-  const sendPlaygroundMessage = async (agentId: string, text: string) => {
+  const sendPlaygroundMessage = async (agentId: string, text: string, channel?: string) => {
     const userMsg: Message = {
       id: `msg-${Date.now()}-user`,
       sender: "user",
@@ -293,6 +293,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const existingConv = updatedConvs[existingConvIdx];
         updatedConvs[existingConvIdx] = {
           ...existingConv,
+          channel: channel || existingConv.channel || "Web chat",
           summary: text.slice(0, 50) + (text.length > 50 ? "..." : ""),
           date: new Date().toISOString(),
           messages: [...existingConv.messages, userMsg],
@@ -301,7 +302,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const newConv: Conversation = {
           id: `playground-conv-${agentId}`,
           customerName: "Playground Tester",
-          channel: "Web chat",
+          channel: channel || "Web chat",
           summary: text.slice(0, 50) + (text.length > 50 ? "..." : ""),
           leadStatus: "New",
           date: new Date().toISOString(),
@@ -402,6 +403,8 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           )
         );
 
+        return data.reply;
+
       } catch (err) {
         console.warn("Playground secure completion failed, invoking client fallback:", err);
         
@@ -445,6 +448,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             
             updatedConvs[existingConvIdx] = {
               ...existingConv,
+              channel: channel || existingConv.channel || "Web chat",
               leadStatus: isHot ? "Hot" : existingConv.leadStatus,
               needsFollowUp: isHot ? true : existingConv.needsFollowUp,
               messages: [...existingConv.messages, agentMsg],
@@ -463,8 +467,10 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             w.id === activeWorkspaceId ? { ...w, volume: w.volume + 1 } : w
           )
         );
+        return fallbackReply;
       }
     }
+    return undefined;
   };
 
   const clearPlaygroundHistory = (agentId: string) => {
