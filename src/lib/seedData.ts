@@ -1,4 +1,4 @@
-import { ClientWorkspace, BrandBrain, Agent, Conversation, TrainingItem, SystemStats } from "./types";
+import { ClientWorkspace, BrandBrain, Agent, Conversation, TrainingItem, SystemStats, CallScenario } from "./types";
 
 // Seed client workspaces (for switcher and agency view)
 export const initialWorkspaces: ClientWorkspace[] = [
@@ -28,6 +28,15 @@ export const initialWorkspaces: ClientWorkspace[] = [
     volume: 850,
     value: 950,
     trainingStatus: 85,
+  },
+  {
+    id: "eka-kitchen",
+    clientName: "Eka Kitchen & Catering",
+    industry: "Food & Hospitality",
+    agentsCount: 1,
+    volume: 920,
+    value: 850,
+    trainingStatus: 88,
   }
 ];
 
@@ -161,6 +170,49 @@ export const initialBrandBrains: Record<string, BrandBrain> = {
       "It would be my absolute pleasure to assist in organizing your voyage. We can certainly arrange a private chauffeur and VIP airport fast-track at your destination. How many guests will be traveling in your party?",
       "To ensure we curate an itinerary that perfectly aligns with your preferences, would you be available for a brief introductory call with one of our Senior Travel Advisors?"
     ]
+  },
+  "eka-kitchen": {
+    profile: {
+      name: "Eka Kitchen & Catering",
+      industry: "Premium West African Dining & Event Catering",
+      overview: "Eka Kitchen is a high-end restaurant and bespoke catering brand based in Lagos, offering premium modern West African cuisine. We specialize in corporate event catering, private dining experiences, and premium daily lunch deliveries.",
+      products: [
+        "Signature Jollof & Grilled Suya Platter ($45/platter) - Serves 3-4. Spicy, smoky, and authentic.",
+        "Corporate Lunch Package ($18/person) - Minimum 10 orders. Includes choice of main, sides, and local hibiscus drink (Zobo).",
+        "Private Chef Dining Experience (Starting at $350/event) - Custom 5-course curated menu for intimate groups.",
+        "Royal Seafood Okra & Poundo ($25/portion) - Premium crabs, prawns, and snails in rich local spices."
+      ],
+      pricingNotes: "A 50% non-refundable deposit is required to lock in catering dates. Daily lunch deliveries must be ordered before 10:00 AM. Pricing is in USD or equivalent Nigerian Naira (NGN) at our daily commercial rate.",
+      policies: "Catering bookings must be finalized at least 7 days before the event. Cancellations within 72 hours of the event forfeit the deposit. Delivery orders have a flat $5 fee within Victoria Island, Ikoyi, and Lekki Phase 1.",
+      ownerNotes: "Always emphasize our premium local ingredients, authentic recipes, and top-tier hygiene standards. Do not compromise on spice levels unless requested. Offer the Corporate Lunch Package for group inquiries."
+    },
+    toneOfVoice: "Warm, vibrant, hospitable, and proud. Express culinary passion, using words like 'savory', 'authentic spices', 'smoky aroma', and 'royal feast'.",
+    doRules: [
+      "Highlight that all meals are prepared fresh by professional chefs under strict hygiene conditions.",
+      "Direct event planners to our Private Chef Dining Experience or Corporate Package.",
+      "Politely mention our 50% catering deposit requirement."
+    ],
+    dontRules: [
+      "Never promise last-minute catering bookings (under 48 hours notice) without manager approval.",
+      "Do not offer discounts on catering unless the group exceeds 100 people.",
+      "Avoid sounding cold or overly transactional; hospitality is our core."
+    ],
+    faqs: [
+      {
+        id: "eka-faq-1",
+        question: "Do you offer gluten-free West African dishes?",
+        answer: "Yes, we do! Many of our traditional dishes, such as our grilled Suya, Seafood Okra, and plantain sides, are naturally gluten-free. We can also prepare gluten-free swallows (like almond flour or plantain flour) upon request."
+      },
+      {
+        id: "eka-faq-2",
+        question: "Do you cater for weddings and large events outside Lagos?",
+        answer: "Yes, Eka Kitchen caters for events across major Nigerian cities and destination weddings. Out-of-station bookings require travel and logistics accommodation coverage for our culinary team."
+      }
+    ],
+    exampleReplies: [
+      "Welcome to Eka Kitchen! 🌶️ It is our absolute pleasure to bring the rich, savory flavors of West Africa to your table. Are you planning an event or ordering lunch today?",
+      "For our bespoke catering, we recommend a 50% deposit to secure your date. I'd love to connect you with our events coordinator to finalize your menu. Would you prefer a call or a WhatsApp message?"
+    ]
   }
 };
 
@@ -215,6 +267,16 @@ export const initialAgents: Agent[] = [
     channels: ["Web chat", "WhatsApp", "Voice"],
     status: "Active",
     linkedBrainId: "horizon-travel",
+  },
+  {
+    id: "agent-6",
+    name: "Amina",
+    role: "Catering & Events Coordinator",
+    personality: "Vibrant, warm, and highly organized culinary host. She makes party planning easy and gets clients excited about the food journey.",
+    tone: "Vibrant & Welcoming",
+    channels: ["Web chat", "WhatsApp", "Voice"],
+    status: "Active",
+    linkedBrainId: "eka-kitchen",
   }
 ];
 
@@ -314,6 +376,23 @@ export const initialConversations: Record<string, Conversation[]> = {
         { id: "m17", sender: "agent", text: "It would be an absolute pleasure to arrange that for you, Mr. Pendelton. I will immediately contact our premium operator network to source options for a midsize cabin (such as a Citation XLS+ or Hawker 800XP) suitable for 6 passengers and luggage. I will compile a formal quote including catering preferences and flight times. May I confirm if you require chauffeur service at Nice airport?", timestamp: "09:10" }
       ]
     }
+  ],
+  "eka-kitchen": [
+    {
+      id: "conv-eka-1",
+      customerName: "Chinedu Okafor",
+      channel: "WhatsApp",
+      summary: "Inquiring about corporate lunch packages for a team of 15.",
+      leadStatus: "Hot",
+      date: "2026-06-14T11:05:00Z",
+      sentiment: "Positive",
+      needsFollowUp: true,
+      messages: [
+        { id: "m18", sender: "user", text: "Hello, we have a board meeting this Thursday and want to order lunch for 15 people. Do you have group packages?", timestamp: "11:00" },
+        { id: "m19", sender: "agent", text: "Hello Chinedu! We would love to host your board lunch. 🌶️ Our Corporate Lunch Package at $18 per person is perfect for this. It includes a choice of signature mains (like our smoky Jollof rice or fried rice), grilled chicken or fish, sides, and cold Zobo. Shall we lock this in for Thursday?", timestamp: "11:03" },
+        { id: "m20", sender: "user", text: "Yes, that sounds perfect. Can we pay via bank transfer?", timestamp: "11:05" }
+      ]
+    }
   ]
 };
 
@@ -359,6 +438,15 @@ export const initialTrainingItems: Record<string, TrainingItem[]> = {
       ownerCorrection: "If a flight is cancelled due to weather, we work directly with the operator to reschedule the flight at no cost. If rescheduling is impossible, a full refund of the charter cost is returned, minus any positioning costs already incurred.",
       status: "Pending"
     }
+  ],
+  "eka-kitchen": [
+    {
+      id: "train-eka-1",
+      customerQuestion: "Can we cancel a lunch delivery order after 10:30 AM?",
+      aiAnswer: "Yes, you can cancel your delivery order anytime before it arrives.",
+      ownerCorrection: "No, lunch delivery orders are prepared fresh and dispatched starting at 10:00 AM. Cancellations or changes are only permitted before 10:00 AM on the day of delivery.",
+      status: "Pending"
+    }
   ]
 };
 
@@ -373,3 +461,72 @@ export const seedSystemStats: SystemStats = {
   apiUsagePercent: 64,
   errorsCount: 3
 };
+
+export const initialCallScenarios: CallScenario[] = [
+  {
+    id: "scen-pricing-inquiry",
+    title: "Pricing Inquiry",
+    persona: "Sarah Jenkins",
+    mood: "curious",
+    goal: "Understand the pricing for Botox and check if package discounts exist.",
+    openingLine: "Hi, I was looking at your services and wanted to know how much you charge for Botox? Do you offer any packages?",
+    expectedOutcome: "The agent should explain the $14/unit price, the $50 redeemable consultation fee, and the Cherry Financing option without inventing custom deals.",
+    difficulty: "Easy",
+    agentId: "agent-1"
+  },
+  {
+    id: "scen-booking-request",
+    title: "Booking Request",
+    persona: "Robert Chen",
+    mood: "calm",
+    goal: "Book a Deluxe HydraFacial for this Friday afternoon.",
+    openingLine: "Hello! I'd like to schedule a Deluxe HydraFacial for this Friday. Do you have any slots open in the afternoon?",
+    expectedOutcome: "The agent should note the request, explain the booking process (credit card on file to secure booking), and advise rescheduling or cancellation policy.",
+    difficulty: "Easy",
+    agentId: "agent-1"
+  },
+  {
+    id: "scen-complaint",
+    title: "Late Fee Objection",
+    persona: "Linda Thompson",
+    mood: "angry",
+    goal: "Complain about a $75 late cancellation charge and demand a waiver.",
+    openingLine: "I noticed a $75 charge on my credit card from you guys. I had to cancel late because of a family emergency, and this fee is ridiculous. I want this refunded immediately!",
+    expectedOutcome: "The agent should stay empathetic and calm, explain the 24-hour policy, offer to log the dispute, set follow-up to True, and escalate to management.",
+    difficulty: "Hard",
+    agentId: "agent-1"
+  },
+  {
+    id: "scen-b2b-objection",
+    title: "Enterprise ROI Objection",
+    persona: "Frank Vance (Logistics Director)",
+    mood: "skeptical",
+    goal: "Verify if the software supports custom API triggers and challenge the enterprise tier price.",
+    openingLine: "We run a fleet of 50 trucks and need custom webhook triggers for dispatch events. The other rep said we have to pay for the Enterprise tier. Why should we pay extra for basic integrations?",
+    expectedOutcome: "The agent should explain that standard webhooks are in the Professional tier ($249/mo), but complex customization requires Enterprise, emphasizing the 15% fuel reduction ROI.",
+    difficulty: "Medium",
+    agentId: "agent-3"
+  },
+  {
+    id: "scen-unknown-question",
+    title: "Unknown Medical Objection",
+    persona: "Aria Blake",
+    mood: "urgent",
+    goal: "Ask if Botox is safe to get while having active eczema on the face.",
+    openingLine: "Hi, I have a Botox consult scheduled, but I'm having a really bad eczema flare-up on my forehead right now. Is it safe to inject Botox directly into eczema skin?",
+    expectedOutcome: "The agent must strictly follow the safety/doctor escalation rule: refuse to give medical advice, politely log the query, and promise a medical practitioner will follow up.",
+    difficulty: "Hard",
+    agentId: "agent-2"
+  },
+  {
+    id: "scen-eka-catering",
+    title: "Catering Deposit Objection",
+    persona: "Tunde Alao",
+    mood: "skeptical",
+    goal: "Inquire about catering deposit and negotiate a lower booking deposit than 50%.",
+    openingLine: "Hi, I'm planning an anniversary party for 80 guests. I want to book your catering services, but 50% upfront is too high. Can we do a 10% deposit instead?",
+    expectedOutcome: "The agent should explain that the 50% deposit is standard to secure fresh ingredients and lock in the date, but they can offer to split the deposit into two payments (25% now, 25% 30 days before event) with manager approval.",
+    difficulty: "Medium",
+    agentId: "agent-6"
+  }
+];

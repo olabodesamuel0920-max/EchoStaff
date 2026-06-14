@@ -17,7 +17,10 @@ export const DashboardTopbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
     setActiveWorkspaceId,
     addClientWorkspace,
     isMockMode,
-    toggleMockMode
+    toggleMockMode,
+    user,
+    isSupabaseConfigured,
+    logout
   } = useAppState();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -114,19 +117,17 @@ export const DashboardTopbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
 
       {/* Right: API Mode Switcher & Profiles */}
       <div className="flex items-center gap-4">
-        {/* Mock Status Toggler */}
-        <button 
-          onClick={toggleMockMode}
-          className={`hidden sm:flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-all shadow-inner border border-purple-900/30 cursor-pointer ${
-            isMockMode 
-              ? "bg-purple-950/20 text-purple-400 hover:bg-purple-900/20" 
-              : "bg-emerald-950/20 text-emerald-400 border-emerald-900/30 hover:bg-emerald-900/20"
+        {/* Mode Visibility Badge */}
+        <div 
+          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold border shadow-inner ${
+            isSupabaseConfigured && user
+              ? "bg-emerald-950/20 text-emerald-400 border-emerald-900/30" 
+              : "bg-purple-950/20 text-purple-400 border-purple-900/30"
           }`}
-          title="Click to toggle sandbox/database mode"
         >
-          <span className={`h-1.5 w-1.5 rounded-full ${isMockMode ? "bg-purple-400" : "bg-emerald-400"} animate-pulse-ring`} />
-          <span>{isMockMode ? "Mock Mode" : "Supabase Ready"}</span>
-        </button>
+          <span className={`h-1.5 w-1.5 rounded-full ${isSupabaseConfigured && user ? "bg-emerald-400" : "bg-purple-400"} animate-pulse`} />
+          <span>{isSupabaseConfigured && user ? "Supabase Connected" : "Local Sandbox"}</span>
+        </div>
 
         {/* Global Connection Stats */}
         <div className="hidden md:flex items-center gap-2 text-xs text-zinc-500 border-l border-zinc-900 pl-4">
@@ -136,11 +137,20 @@ export const DashboardTopbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
 
         {/* Profile Avatar / Quick Link */}
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-600 p-0.5 shadow-md shadow-purple-500/10">
+          <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-600 p-0.5 shadow-md shadow-purple-500/10 animate-glow">
             <div className="flex h-full w-full items-center justify-center rounded-full bg-zinc-950 text-xs font-bold text-zinc-200">
-              AD
+              {user ? user.email?.slice(0, 2).toUpperCase() : "SB"}
             </div>
           </div>
+          {user && (
+            <button
+              onClick={logout}
+              className="flex items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/50 p-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors cursor-pointer"
+              title="Logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 

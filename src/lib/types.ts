@@ -32,6 +32,9 @@ export interface Agent {
   channels: string[]; // e.g. "Web chat", "Voice", "WhatsApp", "Phone", "Instagram", "Email"
   status: "Draft" | "Training" | "Active";
   linkedBrainId: string; // references a workspace/client ID
+  callReadiness?: number;
+  lastSimulationResult?: string;
+  needsTraining?: boolean;
 }
 
 export interface Message {
@@ -80,4 +83,39 @@ export interface SystemStats {
   activeNodes: number;
   apiUsagePercent: number;
   errorsCount: number;
+}
+
+export interface CallScenario {
+  id: string;
+  title: string;
+  persona: string;
+  mood: "calm" | "curious" | "skeptical" | "urgent" | "angry";
+  goal: string;
+  openingLine: string;
+  expectedOutcome: string;
+  difficulty: "Easy" | "Medium" | "Hard";
+  agentId: string;
+}
+
+export interface CallScorecard {
+  qualityScore: number;
+  toneMatchScore: number;
+  policySafetyScore: number;
+  missingKnowledge?: string;
+  recommendedTrainingAction?: string;
+  detectedIntent: string;
+  leadStatus: "Cold" | "Warm" | "Hot" | "Converted";
+  confidenceScore: number;
+  suggestedFollowUp: boolean;
+}
+
+export interface CallSimulation {
+  id: string;
+  scenarioId: string;
+  agentId: string;
+  durationSeconds: number;
+  scorecard?: CallScorecard;
+  conversationId: string;
+  date: string;
+  status: "ringing" | "connected" | "ended" | "analyzing";
 }

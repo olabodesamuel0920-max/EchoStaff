@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useAppState } from "@/context/state-context";
-import { MessageSquare, Phone, Send, Star, AlertCircle, CheckCircle } from "lucide-react";
+import { MessageSquare, Phone, Send, Star, AlertCircle, CheckCircle, Mic } from "lucide-react";
 
 const Instagram = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -41,6 +41,8 @@ export default function ConversationsInboxPage() {
       case "WhatsApp": return <Send className="h-3.5 w-3.5 text-emerald-400" />;
       case "Instagram": return <Instagram className="h-3.5 w-3.5 text-pink-400" />;
       case "Phone": return <Phone className="h-3.5 w-3.5 text-blue-400" />;
+      case "Call Simulation": return <Phone className="h-3.5 w-3.5 text-purple-400" />;
+      case "Voice Demo": return <Mic className="h-3.5 w-3.5 text-indigo-400" />;
       default: return <MessageSquare className="h-3.5 w-3.5 text-purple-400" />;
     }
   };
@@ -194,9 +196,15 @@ export default function ConversationsInboxPage() {
           </>
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-2">
-            <MessageSquare className="h-8 w-8 text-zinc-800" />
-            <span className="text-xs font-semibold text-zinc-400">Select a conversation</span>
-            <p className="text-[10px] text-zinc-600 max-w-[180px]">Choose a user thread on the left pane to analyze the chat transcript.</p>
+            <MessageSquare className="h-8 w-8 text-zinc-850 animate-pulse" />
+            <span className="text-xs font-semibold text-zinc-400">
+              {workspaceConvs.length === 0 ? "No Conversation Logs" : "Select a conversation"}
+            </span>
+            <p className="text-[10px] text-zinc-600 max-w-[240px] leading-relaxed">
+              {workspaceConvs.length === 0 
+                ? "Start a chat in the Agent Playground or run a Call Lab simulation to log your first session here."
+                : "Choose a user thread on the left pane to analyze the chat transcript."}
+            </p>
           </div>
         )}
       </div>

@@ -37,6 +37,11 @@ export default function LandingPage() {
       title: "Julian (Elite Travel Concierge)",
       overview: "Coordinates private aviation logistics, villa leases, and high-end VIP requests.",
       phrase: "I will secure your heavy jet charter options by 3 PM today. Do you require VIP fast-track in Nice?"
+    },
+    {
+      title: "Amina (Catering & Events Coordinator)",
+      overview: "Coordinates event catering, lunch delivery packages, and addresses deposit objections.",
+      phrase: "Our corporate lunch packages are $18/person, featuring smoky Jollof rice and grilled chicken. Shall we book this for Thursday?"
     }
   ];
 

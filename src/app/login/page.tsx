@@ -4,22 +4,41 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Sparkles, Mail, Lock } from "lucide-react";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate login delay
-    setTimeout(() => {
-      setLoading(false);
-      router.push("/dashboard");
-    }, 800);
+    setErrorMessage("");
+
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setErrorMessage(error.message);
+        setLoading(false);
+      } else {
+        router.push("/dashboard");
+      }
+    } else {
+      // Simulate login delay
+      setTimeout(() => {
+        setLoading(false);
+        router.push("/dashboard");
+      }, 800);
+    }
   };
+
 
   return (
     <div className="flex min-h-screen flex-col justify-center bg-black py-12 px-6 lg:px-8 relative overflow-hidden">
@@ -47,6 +66,11 @@ export default function LoginPage() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="bg-zinc-950/80 border border-zinc-900 px-4 py-8 shadow-2xl rounded-xl sm:px-10 glass-panel">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {errorMessage && (
+              <div className="rounded-lg border border-red-900/30 bg-red-950/20 p-3 text-xs text-red-400">
+                {errorMessage}
+              </div>
+            )}
             <div>
               <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-zinc-400">
                 Email address

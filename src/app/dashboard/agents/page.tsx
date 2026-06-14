@@ -163,6 +163,26 @@ export default function AgentBuilderPage() {
                 <span className="text-zinc-300 font-medium">{agent.tone}</span>
               </div>
 
+              {/* Call Readiness Telemetry */}
+              <div className="border-t border-zinc-950 pt-2 space-y-1.5 text-[11px]">
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-500 font-semibold uppercase tracking-wider">Call Readiness:</span>
+                  <span className={`font-bold ${
+                    (agent.callReadiness || 85) >= 90 ? "text-emerald-400" :
+                    (agent.callReadiness || 85) >= 75 ? "text-amber-400" : "text-rose-450"
+                  }`}>{agent.callReadiness || 85}%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-500 font-semibold uppercase tracking-wider">Last Sim Result:</span>
+                  <span className="text-zinc-350 font-medium truncate max-w-[125px]">{agent.lastSimulationResult || "N/A"}</span>
+                </div>
+                {agent.needsTraining && (
+                  <div className="bg-rose-500/10 border border-rose-500/25 text-rose-400 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded text-center">
+                    ⚠️ Needs Training Objections
+                  </div>
+                )}
+              </div>
+
               {/* Channels List */}
               <div className="flex flex-wrap gap-1.5">
                 {agent.channels.map((ch, idx) => {

@@ -22,22 +22,104 @@ export default function AnalyticsPage() {
   const hotLeads = workspaceConvs.filter(c => c.leadStatus === "Hot" || c.leadStatus === "Warm");
   const conversionRate = totalConvsCount > 0 ? Math.round((hotLeads.length / totalConvsCount) * 100) : 18;
 
-  // Mock list calculations based on active workspace
-  const isAesthetics = activeWorkspaceId === "luna-aesthetics";
+  // Dynamically extract intents and objections from real conversation history
+  const realIntents: { q: string; count: number; trend: string }[] = [];
+  const realObjections: { obj: string; friction: "High" | "Medium" | "Low"; count: number }[] = [];
 
-  const baseQuestions = isAesthetics 
-    ? [
-        { q: "Botox injection pain and recovery times", count: 42, trend: "+12%" },
-        { q: "Hydrafacial sensitive skin compatibility", count: 28, trend: "+8%" },
-        { q: "Consultation pricing and deductibility rules", count: 25, trend: "+15%" },
-        { q: "Lip filler swelling duration", count: 18, trend: "-3%" }
-      ]
-    : [
-        { q: "NetSuite and QuickBooks integration pricing", count: 85, trend: "+25%" },
-        { q: "Apex Professional terminal pricing volume deals", count: 64, trend: "+18%" },
-        { q: "Onboarding SLA times for Enterprise dispatchers", count: 40, trend: "+5%" },
-        { q: "Routing engine deadhead mile calculations", count: 32, trend: "+12%" }
-      ];
+  workspaceConvs.forEach(conv => {
+    const textLower = (conv.summary + " " + conv.messages.map(m => m.text).join(" ")).toLowerCase();
+    
+    // Objections analysis
+    if (textLower.includes("price") || textLower.includes("cost") || textLower.includes("charge") || textLower.includes("fee") || textLower.includes("deposit") || textLower.includes("expensive")) {
+      let objName = "Pricing Inquiry / Deposit Objection";
+      if (activeWorkspaceId === "luna-aesthetics") objName = "Pricing of Dermal Fillers ($650/syringe)";
+      else if (activeWorkspaceId === "eka-kitchen") objName = "50% non-refundable event deposit upfront fee";
+      else if (activeWorkspaceId === "apex-saas") objName = "Terminal licensing fee totals ($249/terminal)";
+      else if (activeWorkspaceId === "horizon-travel") objName = "Private jet positioning fee charges";
+      
+      const existing = realObjections.find(o => o.obj === objName);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        realObjections.push({ obj: objName, friction: "High", count: 1 });
+      }
+    }
+    
+    if (textLower.includes("cancellation") || textLower.includes("cancel") || textLower.includes("refund") || textLower.includes("late")) {
+      let objName = "Cancellation & Refund Queries";
+      if (activeWorkspaceId === "luna-aesthetics") objName = "24-hour cancellation fee penalties";
+      else if (activeWorkspaceId === "eka-kitchen") objName = "72-hour Catering Cancellation Refund Policies";
+      else if (activeWorkspaceId === "horizon-travel") objName = "Last minute villa cancellation restrictions";
+      
+      const existing = realObjections.find(o => o.obj === objName);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        realObjections.push({ obj: objName, friction: "Medium", count: 1 });
+      }
+    }
+
+    // Intents extraction
+    conv.messages.forEach(msg => {
+      if (msg.sender === "user") {
+        const txt = msg.text;
+        if (txt.length > 15 && txt.length < 80 && (txt.includes("?") || txt.includes("how") || txt.includes("what") || txt.includes("does") || txt.includes("can"))) {
+          const cleanQ = txt.replace(/[?.!,]/g, "").trim();
+          const existing = realIntents.find(i => i.q.toLowerCase() === cleanQ.toLowerCase());
+          if (existing) {
+            existing.count += 1;
+          } else {
+            realIntents.push({ q: cleanQ, count: 1, trend: "+12%" });
+          }
+        }
+      }
+    });
+  });
+
+  realObjections.sort((a, b) => b.count - a.count);
+  realIntents.sort((a, b) => b.count - a.count);
+
+  // Fallbacks for base questions (localized/realistic)
+  const aestheticsBase = [
+    { q: "Botox injection pain and recovery times", count: 42, trend: "+12%" },
+    { q: "Hydrafacial sensitive skin compatibility", count: 28, trend: "+8%" },
+    { q: "Consultation pricing and deductibility rules", count: 25, trend: "+15%" },
+    { q: "Lip filler swelling duration", count: 18, trend: "-3%" }
+  ];
+
+  const kitchenBase = [
+    { q: "Corporate Jollof lunch delivery menu and minimum orders", count: 38, trend: "+15%" },
+    { q: "Bespoke event catering 50% deposit negotiation", count: 24, trend: "+10%" },
+    { q: "Private Chef dining menu customization options", count: 18, trend: "+5%" },
+    { q: "Gluten-free modern West African dish alternatives", count: 12, trend: "+2%" }
+  ];
+
+  const saasBase = [
+    { q: "NetSuite and QuickBooks integration pricing", count: 85, trend: "+25%" },
+    { q: "Apex Professional terminal pricing volume deals", count: 64, trend: "+18%" },
+    { q: "Onboarding SLA times for Enterprise dispatchers", count: 40, trend: "+5%" },
+    { q: "Routing engine deadhead mile calculations", count: 32, trend: "+12%" }
+  ];
+
+  const travelBase = [
+    { q: "Private jet charter empty leg availability and pricing", count: 30, trend: "+10%" },
+    { q: "Elite membership global airport VIP lounge escorts", count: 22, trend: "+14%" },
+    { q: "Bespoke itinerary planning fees deductibility", count: 15, trend: "+5%" },
+    { q: "Villa bookings and cancellation refund policies", count: 10, trend: "+2%" }
+  ];
+
+  const baseQuestions = activeWorkspaceId === "luna-aesthetics" ? aestheticsBase
+                      : activeWorkspaceId === "eka-kitchen" ? kitchenBase
+                      : activeWorkspaceId === "horizon-travel" ? travelBase
+                      : saasBase;
+
+  // Merge real intents with seed fallbacks
+  const mergedIntents = [...realIntents];
+  baseQuestions.forEach(seed => {
+    if (!mergedIntents.some(i => i.q.toLowerCase() === seed.q.toLowerCase())) {
+      mergedIntents.push(seed);
+    }
+  });
 
   // Map real FAQs from state context
   const faqQuestions = brainFAQs.map((faq, idx) => ({
@@ -46,19 +128,47 @@ export default function AnalyticsPage() {
     trend: idx % 2 === 0 ? "+14%" : "+4%"
   }));
 
-  const topQuestions = [...faqQuestions, ...baseQuestions].slice(0, 5);
+  const topQuestions = [...faqQuestions, ...mergedIntents].slice(0, 5);
 
-  const commonObjections = isAesthetics
-    ? [
-        { obj: "Pricing of Dermal Fillers ($650/syringe)", friction: "High", count: 15 },
-        { obj: "$50 Consultation fee restriction", friction: "Medium", count: 12 },
-        { obj: "24-hour cancellation fee penalties", friction: "Low", count: 8 }
-      ]
-    : [
-        { obj: "Terminal licensing fee totals ($249/terminal)", friction: "High", count: 35 },
-        { obj: "Starter tier lack of NetSuite integration", friction: "Medium", count: 24 },
-        { obj: "48-hour onboarding deployment delays", friction: "Low", count: 10 }
-      ];
+  // Objections Fallbacks
+  const aestheticsObjections = [
+    { obj: "Pricing of Dermal Fillers ($650/syringe)", friction: "High" as const, count: 15 },
+    { obj: "$50 Consultation fee restriction", friction: "Medium" as const, count: 12 },
+    { obj: "24-hour cancellation fee penalties", friction: "Low" as const, count: 8 }
+  ];
+
+  const kitchenObjections = [
+    { obj: "50% non-refundable event deposit upfront fee", friction: "High" as const, count: 18 },
+    { obj: "Victoria Island/Lekki flat delivery zone restrictions", friction: "Medium" as const, count: 12 },
+    { obj: "Spice level adjustments for non-traditional guests", friction: "Low" as const, count: 6 }
+  ];
+
+  const saasObjections = [
+    { obj: "Terminal licensing fee totals ($249/terminal)", friction: "High" as const, count: 35 },
+    { obj: "Starter tier lack of NetSuite integration", friction: "Medium" as const, count: 24 },
+    { obj: "48-hour onboarding deployment delays", friction: "Low" as const, count: 10 }
+  ];
+
+  const travelObjections = [
+    { obj: "Private jet positioning fee charges", friction: "High" as const, count: 14 },
+    { obj: "Bespoke planning fee non-refundability policy", friction: "Medium" as const, count: 10 },
+    { obj: "Last minute villa cancellation restrictions", friction: "Low" as const, count: 5 }
+  ];
+
+  const baseObjections = activeWorkspaceId === "luna-aesthetics" ? aestheticsObjections
+                       : activeWorkspaceId === "eka-kitchen" ? kitchenObjections
+                       : activeWorkspaceId === "horizon-travel" ? travelObjections
+                       : saasObjections;
+
+  // Merge real objections
+  const mergedObjections = [...realObjections];
+  baseObjections.forEach(seed => {
+    if (!mergedObjections.some(o => o.obj.toLowerCase() === seed.obj.toLowerCase())) {
+      mergedObjections.push(seed);
+    }
+  });
+
+  const commonObjections = mergedObjections.slice(0, 3);
 
   return (
     <div className="space-y-8">

@@ -21,7 +21,8 @@ export default function DashboardOverview() {
     activeWorkspace, 
     agents, 
     conversations, 
-    trainingItems 
+    trainingItems,
+    callSimulations
   } = useAppState();
 
   // Filter based on active workspace
@@ -37,6 +38,36 @@ export default function DashboardOverview() {
 
   // Derive "Hot Leads"
   const hotLeads = workspaceConvs.filter(c => c.leadStatus === "Hot" || c.leadStatus === "Warm");
+
+  // Call Lab Metrics
+  const workspaceSims = (callSimulations && callSimulations[activeWorkspaceId]) || [];
+  const totalCallSims = workspaceSims.length;
+  
+  const averageReadiness = totalCallSims > 0
+    ? Math.round(workspaceSims.reduce((acc, sim) => acc + (sim.scorecard?.qualityScore || 0), 0) / totalCallSims)
+    : (workspaceAgents.length > 0
+        ? Math.round(workspaceAgents.reduce((acc, a) => acc + (a.callReadiness || 85), 0) / workspaceAgents.length)
+        : 85);
+
+  const callsNeedingTraining = workspaceSims.filter(sim => 
+    sim.scorecard && (sim.scorecard.qualityScore < 80 || sim.scorecard.suggestedFollowUp)
+  ).length;
+
+  const bestAgent = workspaceAgents.length > 0
+    ? [...workspaceAgents].sort((a, b) => (b.callReadiness || 85) - (a.callReadiness || 85))[0]
+    : null;
+
+  if (workspaces.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center space-y-4">
+        <AlertTriangle className="h-12 w-12 text-amber-500 animate-pulse" />
+        <h2 className="text-lg font-bold text-zinc-100">No Workspaces Found</h2>
+        <p className="text-xs text-zinc-500 max-w-[320px] leading-relaxed">
+          We couldn't locate any workspaces for your account. Please create one using the workspace switcher above or wait for onboarding to complete.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -128,6 +159,49 @@ export default function DashboardOverview() {
             <span className="text-[10px] text-zinc-500">{hotLeads.length} leads qualified</span>
           </div>
           <p className="text-[10px] text-zinc-500 mt-2">Conversion rate optimized</p>
+        </div>
+      </div>
+
+      {/* Call Lab Diagnostics */}
+      <div className="glass-panel border border-zinc-900 rounded-xl p-5 shadow-lg space-y-4">
+        <div className="flex items-center justify-between border-b border-zinc-900 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+              Call Lab & Simulator Diagnostics
+            </h3>
+          </div>
+          <Link 
+            href="/dashboard/call-lab"
+            className="text-xs text-purple-400 hover:text-purple-300 font-semibold"
+          >
+            Launch Call Lab
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+          <div className="space-y-1 bg-zinc-900/20 border border-zinc-900/60 p-3 rounded-lg">
+            <span className="text-zinc-550 font-semibold block">Total Call Simulations</span>
+            <span className="text-lg font-extrabold text-white">{totalCallSims}</span>
+          </div>
+          <div className="space-y-1 bg-zinc-900/20 border border-zinc-900/60 p-3 rounded-lg">
+            <span className="text-zinc-550 font-semibold block">Live-Call Readiness</span>
+            <span className={`text-lg font-extrabold block ${
+              averageReadiness >= 90 ? "text-emerald-400" : averageReadiness >= 75 ? "text-amber-400" : "text-rose-455"
+            }`}>{averageReadiness}%</span>
+          </div>
+          <div className="space-y-1 bg-zinc-900/20 border border-zinc-900/60 p-3 rounded-lg">
+            <span className="text-zinc-550 font-semibold block">Simulations Needing Training</span>
+            <span className={`text-lg font-extrabold block ${
+              callsNeedingTraining > 0 ? "text-amber-500" : "text-zinc-400"
+            }`}>{callsNeedingTraining} calls</span>
+          </div>
+          <div className="space-y-1 bg-zinc-900/20 border border-zinc-900/60 p-3 rounded-lg">
+            <span className="text-zinc-550 font-semibold block">Best Performing Agent</span>
+            <span className="text-sm font-extrabold text-purple-400 truncate block">
+              {bestAgent ? `${bestAgent.name} (${bestAgent.callReadiness || 85}%)` : "No agents"}
+            </span>
+          </div>
         </div>
       </div>
 

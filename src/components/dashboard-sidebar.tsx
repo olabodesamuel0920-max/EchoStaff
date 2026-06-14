@@ -16,7 +16,8 @@ import {
   ShieldAlert,
   Building,
   Menu,
-  X
+  X,
+  Phone
 } from "lucide-react";
 
 interface SidebarProps {
@@ -36,6 +37,7 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) =>
     { name: "Brand Brain", href: "/dashboard/brand-brain", icon: Brain },
     { name: "AI Staff / Agents", href: "/dashboard/agents", icon: UserCheck },
     { name: "Agent Playground", href: "/dashboard/playground", icon: Play },
+    { name: "Call Lab", href: "/dashboard/call-lab", icon: Phone },
     { 
       name: "Conversations", 
       href: "/dashboard/conversations", 

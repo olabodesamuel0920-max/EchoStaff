@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Sparkles, Mail, Lock, User, Building } from "lucide-react";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -12,17 +13,45 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate signup delay
-    setTimeout(() => {
-      setLoading(false);
-      // In a real application, we would initialize their tenant workspace in Supabase here
-      router.push("/dashboard");
-    }, 800);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            business_name: businessName,
+          },
+        },
+      });
+
+      if (error) {
+        setErrorMessage(error.message);
+        setLoading(false);
+      } else if (data.session) {
+        router.push("/dashboard");
+      } else {
+        setSuccessMessage("Account created! Please check your email to confirm registration.");
+        setLoading(false);
+      }
+    } else {
+      // Simulate signup delay
+      setTimeout(() => {
+        setLoading(false);
+        router.push("/dashboard");
+      }, 800);
+    }
   };
+
 
   return (
     <div className="flex min-h-screen flex-col justify-center bg-black py-12 px-6 lg:px-8 relative overflow-hidden">
@@ -50,6 +79,16 @@ export default function SignupPage() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="bg-zinc-950/80 border border-zinc-900 px-4 py-8 shadow-2xl rounded-xl sm:px-10 glass-panel">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {errorMessage && (
+              <div className="rounded-lg border border-red-900/30 bg-red-950/20 p-3 text-xs text-red-400">
+                {errorMessage}
+              </div>
+            )}
+            {successMessage && (
+              <div className="rounded-lg border border-emerald-900/30 bg-emerald-950/20 p-3 text-xs text-emerald-400">
+                {successMessage}
+              </div>
+            )}
             <div>
               <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wider text-zinc-400">
                 Full name

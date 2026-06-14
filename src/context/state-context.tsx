@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { 
   ClientWorkspace, 
   BrandBrain, 
@@ -10,7 +11,10 @@ import {
   SystemStats,
   BusinessProfile,
   FAQ,
-  Message
+  Message,
+  CallScenario,
+  CallSimulation,
+  CallScorecard
 } from "../lib/types";
 import { 
   initialWorkspaces, 
@@ -18,9 +22,36 @@ import {
   initialAgents, 
   initialConversations, 
   initialTrainingItems, 
-  seedSystemStats 
+  seedSystemStats,
+  initialCallScenarios
 } from "../lib/seedData";
 import { generateMockBrandedResponse } from "../lib/mockAI";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
+import {
+  fetchWorkspaces,
+  fetchBrandBrains,
+  fetchAgents,
+  fetchConversations,
+  fetchAllMessages,
+  fetchTrainingItems,
+  fetchCallScenarios,
+  fetchCallSimulations,
+  createWorkspace,
+  upsertBrandBrain,
+  insertAgent,
+  updateAgent,
+  insertConversation,
+  updateConversation,
+  insertMessage,
+  insertTrainingItem,
+  updateTrainingItemStatus,
+  deleteTrainingItem,
+  insertCallScenario,
+  insertCallSimulation,
+  mapConversation,
+  mapTrainingItem,
+  mapCallSimulation
+} from "@/lib/supabase/db-service";
 
 export interface AgentInsights {
   detectedIntent: string;
@@ -44,6 +75,12 @@ interface StateContextProps {
   playgroundInsights: Record<string, AgentInsights>;
   isMockMode: boolean;
   liveAIEnabled: boolean;
+  callScenarios: CallScenario[];
+  callSimulations: Record<string, CallSimulation[]>;
+  user: any;
+  authLoading: boolean;
+  isSupabaseConfigured: boolean;
+  logout: () => Promise<void>;
   
   setActiveWorkspaceId: (id: string) => void;
   updateBusinessProfile: (profile: BusinessProfile) => void;
@@ -61,13 +98,20 @@ interface StateContextProps {
   approveTrainingItem: (id: string) => void;
   improveTrainingItem: (id: string, correction: string) => void;
   rejectTrainingItem: (id: string) => void;
+  addTrainingItem: (customerQuestion: string, aiAnswer: string) => void;
   addClientWorkspace: (name: string, industry: string, value: number) => void;
   toggleMockMode: () => void;
+  addCustomScenario: (scenario: Omit<CallScenario, "id">) => void;
+  saveCallSimulation: (simulation: CallSimulation, conversation?: Conversation) => void;
+  sendCallSimulationMessage: (agentId: string, text: string, conversationHistory: Message[]) => Promise<any>;
 }
 
 const StateContext = createContext<StateContextProps | undefined>(undefined);
 
 export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const pathname = usePathname();
+  const router = useRouter();
+
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>("luna-aesthetics");
   const [workspaces, setWorkspaces] = useState<ClientWorkspace[]>(initialWorkspaces);
   const [brandBrains, setBrandBrains] = useState<Record<string, BrandBrain>>(initialBrandBrains);
@@ -80,10 +124,167 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isMockMode, setIsMockMode] = useState<boolean>(true);
   const [liveAIEnabled, setLiveAIEnabled] = useState<boolean>(false);
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
+  const [callScenarios, setCallScenarios] = useState<CallScenario[]>(initialCallScenarios);
+  const [callSimulations, setCallSimulations] = useState<Record<string, CallSimulation[]>>({});
 
-  // 1. Initial Load from LocalStorage
+  // Supabase Auth and Loader States
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(isSupabaseConfigured);
+  const [supabaseConvIds, setSupabaseConvIds] = useState<Record<string, string>>({});
+
+  // Auth Redirect Guard: Redirect to /login if unauthenticated on dashboard
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (isSupabaseConfigured && !authLoading && !user && pathname.startsWith("/dashboard")) {
+      router.replace("/login");
+    }
+  }, [user, authLoading, pathname, router]);
+
+  // Auth listener and loader
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      setIsInitialized(true);
+      return;
+    }
+
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Onboarding starter workspace creator
+  const runOnboarding = async (userId: string) => {
+    const defaultWorkspaceName = "My First Workspace";
+    const defaultIndustry = "Consulting";
+    const ws = await createWorkspace(userId, defaultWorkspaceName, defaultIndustry);
+    
+    if (ws) {
+      const starterBrain: BrandBrain = {
+        profile: {
+          name: defaultWorkspaceName,
+          industry: defaultIndustry,
+          overview: "A premium consulting business providing strategic advice.",
+          products: ["Strategic Planning Session ($250/hour)"],
+          pricingNotes: "Payments due at booking.",
+          policies: "24-hour cancellation rule.",
+          ownerNotes: "Keep answers professional.",
+        },
+        toneOfVoice: "Professional, knowledgeable, and polite.",
+        doRules: ["Answer questions accurately", "Recommend booking a strategy session"],
+        dontRules: ["Never give financial advice"],
+        faqs: [{ id: "faq-starter", question: "How do I book a session?", answer: "You can book directly by requesting a calendar link." }],
+        exampleReplies: ["Hello! How can I assist you with your business strategy today?"]
+      };
+      await upsertBrandBrain(ws.id, starterBrain);
+
+      const starterAgent: Agent = {
+        id: `agent-starter-${Date.now()}`,
+        name: "Alex",
+        role: "Strategic Growth Assistant",
+        personality: "Alex is structured, reliable, and goal-oriented.",
+        tone: "Professional & Articulate",
+        channels: ["Web chat"],
+        status: "Training",
+        linkedBrainId: ws.id,
+        callReadiness: 80,
+        lastSimulationResult: "",
+        needsTraining: false,
+      };
+      await insertAgent(starterAgent);
+    }
+  };
+
+  // Load database items when authenticated
+  useEffect(() => {
+    const loadSupabaseData = async (userId: string) => {
+      try {
+        const ws = await fetchWorkspaces();
+        
+        if (ws.length === 0) {
+          await runOnboarding(userId);
+          const reloadedWs = await fetchWorkspaces();
+          ws.push(...reloadedWs);
+        }
+
+        const brains = await fetchBrandBrains();
+        const ags = await fetchAgents();
+        
+        const dbConvs = await fetchConversations();
+        const dbMsgs = await fetchAllMessages();
+        const messagesByConv: Record<string, Message[]> = {};
+        dbMsgs.forEach((msg) => {
+          const cid = msg.conversationId;
+          if (!messagesByConv[cid]) messagesByConv[cid] = [];
+          messagesByConv[cid].push({
+            id: msg.id,
+            sender: msg.sender,
+            text: msg.text,
+            timestamp: msg.timestamp
+          });
+        });
+
+        const convsMap: Record<string, Conversation[]> = {};
+        dbConvs.forEach((c: any) => {
+          const wsId = c.workspace_id;
+          if (!convsMap[wsId]) convsMap[wsId] = [];
+          convsMap[wsId].push(mapConversation(c, messagesByConv[c.id] || []));
+        });
+
+        const items = await fetchTrainingItems();
+        const itemsMap: Record<string, TrainingItem[]> = {};
+        items.forEach((item: any) => {
+          const wsId = item.workspace_id;
+          if (!itemsMap[wsId]) itemsMap[wsId] = [];
+          itemsMap[wsId].push(mapTrainingItem(item));
+        });
+
+        const scenarios = await fetchCallScenarios();
+        const sims = await fetchCallSimulations();
+        const simsMap: Record<string, CallSimulation[]> = {};
+        sims.forEach((sim: any) => {
+          const wsId = sim.workspace_id;
+          if (!simsMap[wsId]) simsMap[wsId] = [];
+          simsMap[wsId].push(mapCallSimulation(sim));
+        });
+
+        setWorkspaces(ws);
+        setBrandBrains(brains);
+        setAgents(ags);
+        setConversations(convsMap);
+        setTrainingItems(itemsMap);
+        setCallScenarios(scenarios);
+        setCallSimulations(simsMap);
+        setIsMockMode(false); // Disable mock mode since Supabase loaded successfully
+
+        if (ws.length > 0) {
+          setActiveWorkspaceId(ws[0].id);
+        }
+      } catch (error) {
+        console.error("Failed to load Supabase data:", error);
+      } finally {
+        setIsInitialized(true);
+      }
+    };
+
+    if (user) {
+      loadSupabaseData(user.id);
+    } else {
+      // If unauthenticated or logged out, load from localStorage fallback
+      setIsMockMode(true);
+    }
+  }, [user]);
+
+  // 1. Initial Load from LocalStorage (Fallback / Mock Mode only)
+  useEffect(() => {
+    if (typeof window !== "undefined" && !user) {
       try {
         const storedActiveId = localStorage.getItem("echostaff_active_workspace_id");
         const storedWorkspaces = localStorage.getItem("echostaff_workspaces");
@@ -94,6 +295,8 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const storedStats = localStorage.getItem("echostaff_system_stats");
         const storedPlayground = localStorage.getItem("echostaff_playground_messages");
         const storedInsights = localStorage.getItem("echostaff_playground_insights");
+        const storedScenarios = localStorage.getItem("echostaff_call_scenarios");
+        const storedSimulations = localStorage.getItem("echostaff_call_simulations");
 
         if (storedActiveId) setActiveWorkspaceId(storedActiveId);
         if (storedWorkspaces) setWorkspaces(JSON.parse(storedWorkspaces));
@@ -104,13 +307,16 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (storedStats) setSystemStats(JSON.parse(storedStats));
         if (storedPlayground) setPlaygroundMessages(JSON.parse(storedPlayground));
         if (storedInsights) setPlaygroundInsights(JSON.parse(storedInsights));
+        if (storedScenarios) setCallScenarios(JSON.parse(storedScenarios));
+        if (storedSimulations) setCallSimulations(JSON.parse(storedSimulations));
       } catch (e) {
         console.error("Failed to load state from localStorage", e);
       } finally {
         setIsInitialized(true);
       }
     }
-  }, []);
+  }, [user]);
+
 
   useEffect(() => {
     fetch("/api/chat")
@@ -123,9 +329,9 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       .catch((err) => console.warn("Failed to check live AI status:", err));
   }, []);
 
-  // 2. Sync to LocalStorage
+  // 2. Sync to LocalStorage (only in sandbox mode / when not logged into Supabase)
   useEffect(() => {
-    if (isInitialized && typeof window !== "undefined") {
+    if (isInitialized && typeof window !== "undefined" && !user) {
       try {
         localStorage.setItem("echostaff_active_workspace_id", activeWorkspaceId);
         localStorage.setItem("echostaff_workspaces", JSON.stringify(workspaces));
@@ -136,6 +342,8 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         localStorage.setItem("echostaff_system_stats", JSON.stringify(systemStats));
         localStorage.setItem("echostaff_playground_messages", JSON.stringify(playgroundMessages));
         localStorage.setItem("echostaff_playground_insights", JSON.stringify(playgroundInsights));
+        localStorage.setItem("echostaff_call_scenarios", JSON.stringify(callScenarios));
+        localStorage.setItem("echostaff_call_simulations", JSON.stringify(callSimulations));
       } catch (e) {
         console.error("Failed to sync state to localStorage", e);
       }
@@ -150,31 +358,45 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     systemStats,
     playgroundMessages,
     playgroundInsights,
-    isInitialized
+    isInitialized,
+    callScenarios,
+    callSimulations
   ]);
 
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
 
   // Business Profile Updates
   const updateBusinessProfile = (profile: BusinessProfile) => {
-    setBrandBrains((prev) => ({
-      ...prev,
-      [activeWorkspaceId]: {
-        ...prev[activeWorkspaceId],
-        profile,
-      },
-    }));
+    setBrandBrains((prev) => {
+      const updated = {
+        ...prev,
+        [activeWorkspaceId]: {
+          ...prev[activeWorkspaceId],
+          profile,
+        },
+      };
+      if (isSupabaseConfigured && user) {
+        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      }
+      return updated;
+    });
   };
 
   // Tone of Voice Updates
   const updateToneOfVoice = (tone: string) => {
-    setBrandBrains((prev) => ({
-      ...prev,
-      [activeWorkspaceId]: {
-        ...prev[activeWorkspaceId],
-        toneOfVoice: tone,
-      },
-    }));
+    setBrandBrains((prev) => {
+      const updated = {
+        ...prev,
+        [activeWorkspaceId]: {
+          ...prev[activeWorkspaceId],
+          toneOfVoice: tone,
+        },
+      };
+      if (isSupabaseConfigured && user) {
+        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      }
+      return updated;
+    });
   };
 
   // FAQs
@@ -183,65 +405,101 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ...faq,
       id: `faq-${Date.now()}`,
     };
-    setBrandBrains((prev) => ({
-      ...prev,
-      [activeWorkspaceId]: {
-        ...prev[activeWorkspaceId],
-        faqs: [...prev[activeWorkspaceId].faqs, newFaq],
-      },
-    }));
+    setBrandBrains((prev) => {
+      const updated = {
+        ...prev,
+        [activeWorkspaceId]: {
+          ...prev[activeWorkspaceId],
+          faqs: [...prev[activeWorkspaceId].faqs, newFaq],
+        },
+      };
+      if (isSupabaseConfigured && user) {
+        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      }
+      return updated;
+    });
   };
 
   const removeFAQ = (id: string) => {
-    setBrandBrains((prev) => ({
-      ...prev,
-      [activeWorkspaceId]: {
-        ...prev[activeWorkspaceId],
-        faqs: prev[activeWorkspaceId].faqs.filter((f) => f.id !== id),
-      },
-    }));
+    setBrandBrains((prev) => {
+      const updated = {
+        ...prev,
+        [activeWorkspaceId]: {
+          ...prev[activeWorkspaceId],
+          faqs: prev[activeWorkspaceId].faqs.filter((f) => f.id !== id),
+        },
+      };
+      if (isSupabaseConfigured && user) {
+        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      }
+      return updated;
+    });
   };
 
   // Do Rules
   const addDoRule = (rule: string) => {
-    setBrandBrains((prev) => ({
-      ...prev,
-      [activeWorkspaceId]: {
-        ...prev[activeWorkspaceId],
-        doRules: [...prev[activeWorkspaceId].doRules, rule],
-      },
-    }));
+    setBrandBrains((prev) => {
+      const updated = {
+        ...prev,
+        [activeWorkspaceId]: {
+          ...prev[activeWorkspaceId],
+          doRules: [...prev[activeWorkspaceId].doRules, rule],
+        },
+      };
+      if (isSupabaseConfigured && user) {
+        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      }
+      return updated;
+    });
   };
 
   const removeDoRule = (ruleToRemove: string) => {
-    setBrandBrains((prev) => ({
-      ...prev,
-      [activeWorkspaceId]: {
-        ...prev[activeWorkspaceId],
-        doRules: prev[activeWorkspaceId].doRules.filter((r) => r !== ruleToRemove),
-      },
-    }));
+    setBrandBrains((prev) => {
+      const updated = {
+        ...prev,
+        [activeWorkspaceId]: {
+          ...prev[activeWorkspaceId],
+          doRules: prev[activeWorkspaceId].doRules.filter((r) => r !== ruleToRemove),
+        },
+      };
+      if (isSupabaseConfigured && user) {
+        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      }
+      return updated;
+    });
   };
 
   // Don't Rules
   const addDontRule = (rule: string) => {
-    setBrandBrains((prev) => ({
-      ...prev,
-      [activeWorkspaceId]: {
-        ...prev[activeWorkspaceId],
-        dontRules: [...prev[activeWorkspaceId].dontRules, rule],
-      },
-    }));
+    setBrandBrains((prev) => {
+      const updated = {
+        ...prev,
+        [activeWorkspaceId]: {
+          ...prev[activeWorkspaceId],
+          dontRules: [...prev[activeWorkspaceId].dontRules, rule],
+        },
+      };
+      if (isSupabaseConfigured && user) {
+        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      }
+      return updated;
+    });
   };
 
   const removeDontRule = (ruleToRemove: string) => {
-    setBrandBrains((prev) => ({
-      ...prev,
-      [activeWorkspaceId]: {
-        ...prev[activeWorkspaceId],
-        dontRules: prev[activeWorkspaceId].dontRules.filter((r) => r !== ruleToRemove),
-      },
-    }));
+    setBrandBrains((prev) => {
+      const updated = {
+        ...prev,
+        [activeWorkspaceId]: {
+          ...prev[activeWorkspaceId],
+          dontRules: prev[activeWorkspaceId].dontRules.filter((r) => r !== ruleToRemove),
+        },
+      };
+      if (isSupabaseConfigured && user) {
+        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      }
+      return updated;
+    });
   };
 
   // Agents
@@ -260,12 +518,25 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       )
     );
     setSystemStats((prev) => ({ ...prev, totalAgents: prev.totalAgents + 1 }));
+
+    if (isSupabaseConfigured && user) {
+      insertAgent(newAgent).then((dbAgent) => {
+        if (dbAgent) {
+          setAgents((prev) =>
+            prev.map((a) => (a.id === newAgent.id ? dbAgent : a))
+          );
+        }
+      });
+    }
   };
 
   const updateAgent = (updatedAgent: Agent) => {
     setAgents((prev) =>
       prev.map((a) => (a.id === updatedAgent.id ? updatedAgent : a))
     );
+    if (isSupabaseConfigured && user) {
+      updateAgent(updatedAgent);
+    }
   };
 
   // Play Ground Messaging
@@ -318,6 +589,45 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         [activeWorkspaceId]: updatedConvs,
       };
     });
+
+    // Supabase syncing for User message
+    let dbConvId = supabaseConvIds[agentId];
+    if (isSupabaseConfigured && user) {
+      try {
+        if (!dbConvId) {
+          const dbConv = await insertConversation(activeWorkspaceId, {
+            id: `playground-conv-${agentId}`,
+            customerName: "Playground Tester",
+            channel: channel || "Web chat",
+            summary: text.slice(0, 50) + (text.length > 50 ? "..." : ""),
+            leadStatus: "New",
+            date: new Date().toISOString(),
+            sentiment: "Neutral",
+            needsFollowUp: false,
+          });
+          if (dbConv) {
+            dbConvId = dbConv.id;
+            setSupabaseConvIds(prev => ({ ...prev, [agentId]: dbConv.id }));
+          }
+        } else {
+          await updateConversation({
+            id: dbConvId,
+            customerName: "Playground Tester",
+            channel: channel || "Web chat",
+            summary: text.slice(0, 50) + (text.length > 50 ? "..." : ""),
+            leadStatus: "New",
+            date: new Date().toISOString(),
+            sentiment: "Neutral",
+            needsFollowUp: false,
+          });
+        }
+        if (dbConvId) {
+          await insertMessage(dbConvId, userMsg);
+        }
+      } catch (err) {
+        console.warn("Failed to sync user message to Supabase:", err);
+      }
+    }
 
     const agent = agents.find((a) => a.id === agentId);
     const brain = brandBrains[activeWorkspaceId];
@@ -395,6 +705,25 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return prev;
         });
 
+        // Supabase syncing for Agent Response
+        if (isSupabaseConfigured && user && dbConvId) {
+          try {
+            await insertMessage(dbConvId, agentMsg);
+            await updateConversation({
+              id: dbConvId,
+              customerName: "Playground Tester",
+              channel: channel || "Web chat",
+              summary: data.reply.slice(0, 50) + (data.reply.length > 50 ? "..." : ""),
+              leadStatus: data.suggestedLeadStatus || "Warm",
+              date: new Date().toISOString(),
+              sentiment: text.toLowerCase().includes("thank") || text.toLowerCase().includes("great") ? "Positive" : "Neutral",
+              needsFollowUp: data.suggestedFollowUp ?? false,
+            });
+          } catch (err) {
+            console.warn("Failed to sync agent response to Supabase:", err);
+          }
+        }
+
         // Increment stats
         setSystemStats((prev) => ({ ...prev, totalConversations: prev.totalConversations + 1 }));
         setWorkspaces((prev) =>
@@ -461,6 +790,27 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return prev;
         });
 
+        // Supabase syncing for Fallback Agent Response
+        if (isSupabaseConfigured && user && dbConvId) {
+          try {
+            await insertMessage(dbConvId, agentMsg);
+            const textLower = text.toLowerCase();
+            const isHot = textLower.includes("price") || textLower.includes("cost") || textLower.includes("book") || textLower.includes("schedule") || textLower.includes("buy") || textLower.includes("pricing") || textLower.includes("consultation");
+            await updateConversation({
+              id: dbConvId,
+              customerName: "Playground Tester",
+              channel: channel || "Web chat",
+              summary: fallbackReply.slice(0, 50) + (fallbackReply.length > 50 ? "..." : ""),
+              leadStatus: isHot ? "Hot" : "Warm",
+              date: new Date().toISOString(),
+              sentiment: "Neutral",
+              needsFollowUp: isHot,
+            });
+          } catch (err2) {
+            console.warn("Failed to sync fallback message to Supabase:", err2);
+          }
+        }
+
         setSystemStats((prev) => ({ ...prev, totalConversations: prev.totalConversations + 1 }));
         setWorkspaces((prev) =>
           prev.map((w) =>
@@ -489,51 +839,201 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ...prev,
       [activeWorkspaceId]: (prev[activeWorkspaceId] || []).filter(c => c.id !== `playground-conv-${agentId}`),
     }));
+
+    // If Supabase is active, clear session references for this agent playground chat
+    setSupabaseConvIds(prev => {
+      const updated = { ...prev };
+      delete updated[agentId];
+      return updated;
+    });
+  };
+
+  // Call Lab Actions
+  const addCustomScenario = (scenario: Omit<CallScenario, "id">) => {
+    const newScen: CallScenario = {
+      ...scenario,
+      id: `scen-custom-${Date.now()}`
+    };
+    setCallScenarios((prev) => [...prev, newScen]);
+    if (isSupabaseConfigured && user) {
+      insertCallScenario(activeWorkspaceId, newScen).then((dbScenario) => {
+        if (dbScenario) {
+          setCallScenarios(prevScens => prevScens.map(sc => sc.id === newScen.id ? dbScenario : sc));
+        }
+      });
+    }
+  };
+
+  const saveCallSimulation = (sim: CallSimulation, conversation?: Conversation) => {
+    setCallSimulations((prev) => {
+      const workspaceSims = prev[activeWorkspaceId] || [];
+      return {
+        ...prev,
+        [activeWorkspaceId]: [sim, ...workspaceSims]
+      };
+    });
+
+    if (conversation) {
+      setConversations((prev) => {
+        const workspaceConvs = prev[activeWorkspaceId] || [];
+        return {
+          ...prev,
+          [activeWorkspaceId]: [conversation, ...workspaceConvs]
+        };
+      });
+    }
+
+    if (sim.scorecard) {
+      setAgents((prev) =>
+        prev.map((a) => {
+          if (a.id === sim.agentId) {
+            const currentScore = sim.scorecard?.qualityScore || 85;
+            const needsTraining = currentScore < 80 || sim.scorecard?.suggestedFollowUp;
+            const updatedAgent = {
+              ...a,
+              callReadiness: currentScore,
+              lastSimulationResult: `${currentScore}% (${currentScore >= 90 ? "Excellent" : currentScore >= 75 ? "Good" : "Needs Work"})`,
+              needsTraining
+            };
+            if (isSupabaseConfigured && user) {
+              updateAgent(updatedAgent);
+            }
+            return updatedAgent;
+          }
+          return a;
+        })
+      );
+    }
+
+    if (isSupabaseConfigured && user) {
+      if (conversation) {
+        insertConversation(activeWorkspaceId, conversation).then(async (dbConv) => {
+          if (dbConv) {
+            for (const msg of conversation.messages) {
+              await insertMessage(dbConv.id, msg);
+            }
+            const updatedSim = {
+              ...sim,
+              conversationId: dbConv.id
+            };
+            await insertCallSimulation(activeWorkspaceId, updatedSim);
+          }
+        });
+      }
+    }
+  };
+
+  const sendCallSimulationMessage = async (
+    agentId: string,
+    text: string,
+    conversationHistory: Message[]
+  ) => {
+    const agent = agents.find((a) => a.id === agentId);
+    const brain = brandBrains[activeWorkspaceId];
+
+    if (!agent || !brain) {
+      throw new Error("Missing agent or brand brain configuration");
+    }
+
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        activeWorkspace,
+        brandBrain: brain,
+        selectedAgent: agent,
+        userMessage: text,
+        conversationHistory
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error("Call simulation completions request failed");
+    }
+
+    return response.json();
   };
 
   // Training Center Actions
+  const addTrainingItem = (customerQuestion: string, aiAnswer: string) => {
+    const newItem: TrainingItem = {
+      id: `train-sim-${Date.now()}`,
+      customerQuestion,
+      aiAnswer,
+      status: "Pending"
+    };
+    setTrainingItems((prev) => {
+      const workspaceItems = prev[activeWorkspaceId] || [];
+      const updated = {
+        ...prev,
+        [activeWorkspaceId]: [newItem, ...workspaceItems]
+      };
+      if (isSupabaseConfigured && user) {
+        insertTrainingItem(activeWorkspaceId, newItem).then((dbItem) => {
+          if (dbItem) {
+            setTrainingItems(prevCurrent => {
+              const currentItems = prevCurrent[activeWorkspaceId] || [];
+              return {
+                ...prevCurrent,
+                [activeWorkspaceId]: currentItems.map(item => item.id === newItem.id ? dbItem : item)
+              };
+            });
+          }
+        });
+      }
+      return updated;
+    });
+  };
+
   const approveTrainingItem = (id: string) => {
-    // Remove from training list
     setTrainingItems((prev) => ({
       ...prev,
       [activeWorkspaceId]: prev[activeWorkspaceId].filter((t) => t.id !== id),
     }));
 
-    // Update training scores
     setWorkspaces((prev) =>
       prev.map((w) =>
         w.id === activeWorkspaceId ? { ...w, trainingStatus: Math.min(w.trainingStatus + 2, 100) } : w
       )
     );
+
+    if (isSupabaseConfigured && user) {
+      updateTrainingItemStatus(id, "Approved");
+    }
   };
 
   const improveTrainingItem = (id: string, correction: string) => {
     const item = trainingItems[activeWorkspaceId]?.find((t) => t.id === id);
     if (!item) return;
 
-    // Remove from training list
     setTrainingItems((prev) => ({
       ...prev,
       [activeWorkspaceId]: prev[activeWorkspaceId].filter((t) => t.id !== id),
     }));
 
-    // 1. Add this correction to FAQs or Do rules in Brand Brain
     const newFAQ: FAQ = {
       id: `faq-from-train-${Date.now()}`,
       question: item.customerQuestion,
       answer: correction,
     };
 
-    setBrandBrains((prev) => ({
-      ...prev,
-      [activeWorkspaceId]: {
-        ...prev[activeWorkspaceId],
-        faqs: [...prev[activeWorkspaceId].faqs, newFAQ],
-        doRules: [...prev[activeWorkspaceId].doRules, `Ensure replies to "${item.customerQuestion}" align with: ${correction.slice(0, 50)}...`],
-      },
-    }));
+    setBrandBrains((prev) => {
+      const updated = {
+        ...prev,
+        [activeWorkspaceId]: {
+          ...prev[activeWorkspaceId],
+          faqs: [...prev[activeWorkspaceId].faqs, newFAQ],
+          doRules: [...prev[activeWorkspaceId].doRules, `Ensure replies to "${item.customerQuestion}" align with: ${correction.slice(0, 50)}...`],
+        },
+      };
+      if (isSupabaseConfigured && user) {
+        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      }
+      return updated;
+    });
 
-    // 2. Add to mock conversation logs as corrected
     const resolvedConv: Conversation = {
       id: `conv-res-${Date.now()}`,
       customerName: "Audited Customer Q",
@@ -554,31 +1054,45 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       [activeWorkspaceId]: [resolvedConv, ...(prev[activeWorkspaceId] || [])],
     }));
 
-    // 3. Update Workspace training percentage
     setWorkspaces((prev) =>
       prev.map((w) =>
         w.id === activeWorkspaceId ? { ...w, trainingStatus: Math.min(w.trainingStatus + 4, 100) } : w
       )
     );
+
+    if (isSupabaseConfigured && user) {
+      updateTrainingItemStatus(id, "Improved", correction);
+      insertConversation(activeWorkspaceId, resolvedConv).then(async (dbConv) => {
+        if (dbConv) {
+          await insertMessage(dbConv.id, resolvedConv.messages[0]);
+          await insertMessage(dbConv.id, resolvedConv.messages[1]);
+        }
+      });
+    }
   };
 
   const rejectTrainingItem = (id: string) => {
-    // Adds to "Don't rules"
     const item = trainingItems[activeWorkspaceId]?.find((t) => t.id === id);
-    
     setTrainingItems((prev) => ({
       ...prev,
       [activeWorkspaceId]: prev[activeWorkspaceId].filter((t) => t.id !== id),
     }));
 
     if (item) {
-      setBrandBrains((prev) => ({
-        ...prev,
-        [activeWorkspaceId]: {
-          ...prev[activeWorkspaceId],
-          dontRules: [...prev[activeWorkspaceId].dontRules, `Never say: "${item.aiAnswer}" when asked about "${item.customerQuestion.slice(0, 35)}..."`],
-        },
-      }));
+      setBrandBrains((prev) => {
+        const updated = {
+          ...prev,
+          [activeWorkspaceId]: {
+            ...prev[activeWorkspaceId],
+            dontRules: [...prev[activeWorkspaceId].dontRules, `Never say: "${item.aiAnswer}" when asked about "${item.customerQuestion.slice(0, 35)}..."`],
+          },
+        };
+        if (isSupabaseConfigured && user) {
+          upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+          deleteTrainingItem(id);
+        }
+        return updated;
+      });
     }
   };
 
@@ -592,7 +1106,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       agentsCount: 0,
       volume: 0,
       value,
-      trainingStatus: 50, // Starts at 50% baseline
+      trainingStatus: 50,
     };
 
     const newBrain: BrandBrain = {
@@ -614,19 +1128,18 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setWorkspaces((prev) => [...prev, newWs]);
     setBrandBrains((prev) => ({ ...prev, [cleanId]: newBrain }));
-    setAgents((prev) => [
-      ...prev,
-      {
-        id: `agent-auto-${Date.now()}`,
-        name: "Welcome Bot",
-        role: "Trainee Representative",
-        personality: "A simple welcome assistant created automatically.",
-        tone: "Polite & Helpful",
-        channels: ["Web chat"],
-        status: "Draft",
-        linkedBrainId: cleanId,
-      },
-    ]);
+    
+    const welcomeAgent: Agent = {
+      id: `agent-auto-${Date.now()}`,
+      name: "Welcome Bot",
+      role: "Trainee Representative",
+      personality: "A simple welcome assistant created automatically.",
+      tone: "Polite & Helpful",
+      channels: ["Web chat"],
+      status: "Draft",
+      linkedBrainId: cleanId,
+    };
+    setAgents((prev) => [...prev, welcomeAgent]);
     setConversations((prev) => ({ ...prev, [cleanId]: [] }));
     setTrainingItems((prev) => ({ ...prev, [cleanId]: [] }));
 
@@ -634,11 +1147,70 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ...prev,
       totalBusinesses: prev.totalBusinesses + 1,
     }));
+
+    if (isSupabaseConfigured && user) {
+      createWorkspace(user.id, name, industry).then(async (dbWs) => {
+        if (dbWs) {
+          setWorkspaces(prevWs => prevWs.map(w => w.id === cleanId ? dbWs : w));
+          setBrandBrains(prevBrains => {
+            const updated = { ...prevBrains, [dbWs.id]: newBrain };
+            delete updated[cleanId];
+            return updated;
+          });
+          setActiveWorkspaceId(prevId => prevId === cleanId ? dbWs.id : prevId);
+          await upsertBrandBrain(dbWs.id, newBrain);
+          
+          const dbAgentInput = {
+            ...welcomeAgent,
+            linkedBrainId: dbWs.id
+          };
+          await insertAgent(dbAgentInput);
+        }
+      });
+    }
+  };
+
+  const logout = async () => {
+    if (isSupabaseConfigured && supabase) {
+      await supabase.auth.signOut();
+    }
+    setUser(null);
+    setWorkspaces(initialWorkspaces);
+    setBrandBrains(initialBrandBrains);
+    setAgents(initialAgents);
+    setConversations(initialConversations);
+    setTrainingItems(initialTrainingItems);
+    setCallScenarios(initialCallScenarios);
+    setCallSimulations({});
+    setActiveWorkspaceId("luna-aesthetics");
+    router.push("/login");
   };
 
   const toggleMockMode = () => {
     setIsMockMode((prev) => !prev);
   };
+
+  if (isSupabaseConfigured && authLoading && pathname.startsWith("/dashboard")) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-600 border-t-transparent"></div>
+          <p className="text-sm text-zinc-400 font-medium tracking-wider animate-pulse">Securing workspace session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isSupabaseConfigured && !user && pathname.startsWith("/dashboard")) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-600 border-t-transparent"></div>
+          <p className="text-sm text-zinc-400 font-medium tracking-wider animate-pulse">Redirecting to login...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <StateContext.Provider
@@ -655,7 +1227,16 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         playgroundInsights,
         isMockMode,
         liveAIEnabled,
+        callScenarios,
+        callSimulations,
+        user,
+        authLoading,
+        isSupabaseConfigured,
+        logout,
         setActiveWorkspaceId,
+        addCustomScenario,
+        saveCallSimulation,
+        sendCallSimulationMessage,
         updateBusinessProfile,
         updateToneOfVoice,
         addFAQ,
@@ -671,6 +1252,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         approveTrainingItem,
         improveTrainingItem,
         rejectTrainingItem,
+        addTrainingItem,
         addClientWorkspace,
         toggleMockMode,
       }}

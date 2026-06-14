@@ -137,7 +137,10 @@ export default function AgentPlaygroundPage() {
 
       recognition.onerror = (event: any) => {
         console.error("Speech recognition error:", event);
-        if (event.error !== "no-speech") {
+        if (event.error === "not-allowed") {
+          setVoiceState("error");
+          setVoiceError("Microphone permission denied. Please enable microphone access in your browser settings to use Voice Mode.");
+        } else if (event.error !== "no-speech") {
           setVoiceState("error");
           setVoiceError(`Microphone error: ${event.error}`);
         } else {
@@ -240,6 +243,11 @@ export default function AgentPlaygroundPage() {
     setVoiceState("idle");
     setVoiceTranscript("");
   };
+
+  // Stop listening/speech on agent or workspace switch
+  useEffect(() => {
+    stopVoiceMode();
+  }, [selectedAgentId, activeWorkspaceId]);
 
   const toggleVoiceMode = () => {
     stopVoiceMode();
