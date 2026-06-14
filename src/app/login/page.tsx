@@ -1,17 +1,26 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Sparkles, Mail, Lock } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const errorParam = searchParams.get("error");
+  let customAlertMessage = "";
+  if (errorParam === "session-expired") {
+    customAlertMessage = "Your session has expired. Please sign in again.";
+  } else if (errorParam === "auth-callback-failed") {
+    customAlertMessage = "Authentication callback failed. Please try registering again.";
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +48,6 @@ export default function LoginPage() {
     }
   };
 
-
   return (
     <div className="flex min-h-screen flex-col justify-center bg-black py-12 px-6 lg:px-8 relative overflow-hidden">
       {/* Background Gradients */}
@@ -66,6 +74,11 @@ export default function LoginPage() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="bg-zinc-950/80 border border-zinc-900 px-4 py-8 shadow-2xl rounded-xl sm:px-10 glass-panel">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {customAlertMessage && (
+              <div className="rounded-lg border border-purple-900/30 bg-purple-950/20 p-3 text-xs text-purple-300">
+                {customAlertMessage}
+              </div>
+            )}
             {errorMessage && (
               <div className="rounded-lg border border-red-900/30 bg-red-950/20 p-3 text-xs text-red-400">
                 {errorMessage}
@@ -176,5 +189,20 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-black text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-600 border-t-transparent"></div>
+          <p className="text-sm text-zinc-400 font-medium tracking-wider animate-pulse">Loading login credentials...</p>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

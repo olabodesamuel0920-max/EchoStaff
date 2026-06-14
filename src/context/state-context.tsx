@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { 
   ClientWorkspace, 
@@ -28,21 +28,16 @@ import {
 import { generateMockBrandedResponse } from "../lib/mockAI";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import {
-  fetchWorkspaces,
-  fetchBrandBrains,
-  fetchAgents,
-  fetchConversations,
-  fetchAllMessages,
-  fetchTrainingItems,
-  fetchCallScenarios,
-  fetchCallSimulations,
+  loadWorkspaceBundle,
   createWorkspace,
+  updateWorkspace as updateWorkspaceDb,
   upsertBrandBrain,
   insertAgent,
-  updateAgent,
+  updateAgent as updateAgentDb,
   insertConversation,
   updateConversation,
   insertMessage,
+  createConversationWithMessages,
   insertTrainingItem,
   updateTrainingItemStatus,
   deleteTrainingItem,
@@ -81,6 +76,18 @@ interface StateContextProps {
   authLoading: boolean;
   isSupabaseConfigured: boolean;
   logout: () => Promise<void>;
+  onboardingError: string | null;
+  dbSyncError: string | null;
+  dbConnectionError: string | null;
+  retryOnboarding: () => Promise<void>;
+  
+  // Data mode helpers
+  shouldUseSupabase: boolean;
+  isSandboxMode: boolean;
+  isDatabaseMode: boolean;
+  isOfflineFallbackActive: boolean;
+  lastSyncTimestamp: string | null;
+  refetchData: () => Promise<void>;
   
   setActiveWorkspaceId: (id: string) => void;
   updateBusinessProfile: (profile: BusinessProfile) => void;
@@ -112,7 +119,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const pathname = usePathname();
   const router = useRouter();
 
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>("luna-aesthetics");
+  const [activeWorkspaceId, setActiveWorkspaceIdRaw] = useState<string>("luna-aesthetics");
   const [workspaces, setWorkspaces] = useState<ClientWorkspace[]>(initialWorkspaces);
   const [brandBrains, setBrandBrains] = useState<Record<string, BrandBrain>>(initialBrandBrains);
   const [agents, setAgents] = useState<Agent[]>(initialAgents);
@@ -131,6 +138,34 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(isSupabaseConfigured);
   const [supabaseConvIds, setSupabaseConvIds] = useState<Record<string, string>>({});
+
+  // Telemetry state hooks
+  const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const [dbSyncError, setDbSyncError] = useState<string | null>(null);
+  const [dbConnectionError, setDbConnectionError] = useState<string | null>(null);
+  const [lastSyncTimestamp, setLastSyncTimestamp] = useState<string | null>(null);
+
+  // ==========================================
+  // Data Mode Helpers (computed)
+  // ==========================================
+  const shouldUseSupabase = isSupabaseConfigured && !!user && !dbConnectionError;
+  const isSandboxMode = !isSupabaseConfigured || (!user && !authLoading);
+  const isDatabaseMode = shouldUseSupabase;
+  const isOfflineFallbackActive = isSupabaseConfigured && !!user && !!dbConnectionError;
+
+  // Track whether we've already loaded supabase data for the current user to avoid double-loading.
+  const loadedUserRef = useRef<string | null>(null);
+
+  // ==========================================
+  // User-scoped active workspace persistence
+  // ==========================================
+  const setActiveWorkspaceId = useCallback((id: string) => {
+    setActiveWorkspaceIdRaw(id);
+    if (typeof window !== "undefined") {
+      const key = user ? `echostaff_active_workspace_id_${user.id}` : "echostaff_active_workspace_id";
+      localStorage.setItem(key, id);
+    }
+  }, [user]);
 
   // Auth Redirect Guard: Redirect to /login if unauthenticated on dashboard
   useEffect(() => {
@@ -203,84 +238,103 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // Load database items when authenticated
-  useEffect(() => {
-    const loadSupabaseData = async (userId: string) => {
-      try {
-        const ws = await fetchWorkspaces();
-        
-        if (ws.length === 0) {
+  const loadSupabaseData = useCallback(async (userId: string) => {
+    try {
+      setDbConnectionError(null);
+      setDbSyncError(null);
+      setOnboardingError(null);
+
+      const bundle = await loadWorkspaceBundle();
+      
+      if (bundle.workspaces.length === 0) {
+        try {
           await runOnboarding(userId);
-          const reloadedWs = await fetchWorkspaces();
-          ws.push(...reloadedWs);
+        } catch (onbErr: any) {
+          console.error("Onboarding failed:", onbErr);
+          setOnboardingError(onbErr.message || "Failed to initialize default workspace");
+          return;
         }
-
-        const brains = await fetchBrandBrains();
-        const ags = await fetchAgents();
-        
-        const dbConvs = await fetchConversations();
-        const dbMsgs = await fetchAllMessages();
-        const messagesByConv: Record<string, Message[]> = {};
-        dbMsgs.forEach((msg) => {
-          const cid = msg.conversationId;
-          if (!messagesByConv[cid]) messagesByConv[cid] = [];
-          messagesByConv[cid].push({
-            id: msg.id,
-            sender: msg.sender,
-            text: msg.text,
-            timestamp: msg.timestamp
-          });
-        });
-
-        const convsMap: Record<string, Conversation[]> = {};
-        dbConvs.forEach((c: any) => {
-          const wsId = c.workspace_id;
-          if (!convsMap[wsId]) convsMap[wsId] = [];
-          convsMap[wsId].push(mapConversation(c, messagesByConv[c.id] || []));
-        });
-
-        const items = await fetchTrainingItems();
-        const itemsMap: Record<string, TrainingItem[]> = {};
-        items.forEach((item: any) => {
-          const wsId = item.workspace_id;
-          if (!itemsMap[wsId]) itemsMap[wsId] = [];
-          itemsMap[wsId].push(mapTrainingItem(item));
-        });
-
-        const scenarios = await fetchCallScenarios();
-        const sims = await fetchCallSimulations();
-        const simsMap: Record<string, CallSimulation[]> = {};
-        sims.forEach((sim: any) => {
-          const wsId = sim.workspace_id;
-          if (!simsMap[wsId]) simsMap[wsId] = [];
-          simsMap[wsId].push(mapCallSimulation(sim));
-        });
-
-        setWorkspaces(ws);
-        setBrandBrains(brains);
-        setAgents(ags);
-        setConversations(convsMap);
-        setTrainingItems(itemsMap);
-        setCallScenarios(scenarios);
-        setCallSimulations(simsMap);
-        setIsMockMode(false); // Disable mock mode since Supabase loaded successfully
-
-        if (ws.length > 0) {
-          setActiveWorkspaceId(ws[0].id);
-        }
-      } catch (error) {
-        console.error("Failed to load Supabase data:", error);
-      } finally {
-        setIsInitialized(true);
+        // Reload after onboarding
+        const reloadedBundle = await loadWorkspaceBundle();
+        applyBundle(reloadedBundle, userId);
+      } else {
+        applyBundle(bundle, userId);
       }
-    };
 
+      setIsMockMode(false);
+      setLastSyncTimestamp(new Date().toISOString());
+    } catch (error: any) {
+      console.error("Failed to load Supabase data:", error);
+      setDbConnectionError(error.message || "Could not connect to database");
+      setIsMockMode(true);
+    } finally {
+      setIsInitialized(true);
+    }
+  }, []);
+
+  /**
+   * applyBundle(): Applies a loaded WorkspaceBundle into React state,
+   * and restores user-scoped active workspace from localStorage.
+   */
+  const applyBundle = (bundle: Awaited<ReturnType<typeof loadWorkspaceBundle>>, userId: string) => {
+    setWorkspaces(bundle.workspaces);
+    setBrandBrains(bundle.brandBrains);
+    setAgents(bundle.agents);
+    setConversations(bundle.conversations);
+    setTrainingItems(bundle.trainingItems);
+    setCallScenarios(bundle.callScenarios);
+    setCallSimulations(bundle.callSimulations);
+
+    // Restore user-scoped active workspace with ownership verification
+    if (bundle.workspaces.length > 0) {
+      const storedKey = `echostaff_active_workspace_id_${userId}`;
+      const storedId = typeof window !== "undefined" ? localStorage.getItem(storedKey) : null;
+      
+      if (storedId && bundle.workspaces.some(w => w.id === storedId)) {
+        setActiveWorkspaceIdRaw(storedId);
+      } else {
+        setActiveWorkspaceIdRaw(bundle.workspaces[0].id);
+      }
+    }
+  };
+
+  /**
+   * refetchData(): Public method to force-reload all data from Supabase.
+   * Used by the Telemetry Panel's "Force Refetch" button.
+   * No-op in sandbox mode.
+   */
+  const refetchData = useCallback(async () => {
+    if (!shouldUseSupabase || !user) return;
+    await loadSupabaseData(user.id);
+  }, [shouldUseSupabase, user, loadSupabaseData]);
+
+  const retryOnboarding = async () => {
+    if (!user) return;
+    setAuthLoading(true);
+    setOnboardingError(null);
+    try {
+      await loadSupabaseData(user.id);
+    } catch (err: any) {
+      console.error("Retry onboarding failed:", err);
+      setOnboardingError(err.message || "Failed to initialize default workspace");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (user) {
-      loadSupabaseData(user.id);
+      // Only load if we haven't already loaded for this user
+      if (loadedUserRef.current !== user.id) {
+        loadedUserRef.current = user.id;
+        loadSupabaseData(user.id);
+      }
     } else {
+      loadedUserRef.current = null;
       // If unauthenticated or logged out, load from localStorage fallback
       setIsMockMode(true);
     }
-  }, [user]);
+  }, [user, loadSupabaseData]);
 
   // 1. Initial Load from LocalStorage (Fallback / Mock Mode only)
   useEffect(() => {
@@ -298,7 +352,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const storedScenarios = localStorage.getItem("echostaff_call_scenarios");
         const storedSimulations = localStorage.getItem("echostaff_call_simulations");
 
-        if (storedActiveId) setActiveWorkspaceId(storedActiveId);
+        if (storedActiveId) setActiveWorkspaceIdRaw(storedActiveId);
         if (storedWorkspaces) setWorkspaces(JSON.parse(storedWorkspaces));
         if (storedBrains) setBrandBrains(JSON.parse(storedBrains));
         if (storedAgents) setAgents(JSON.parse(storedAgents));
@@ -365,6 +419,22 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
 
+  // ==========================================
+  // Helper: Wrap Supabase writes with error tracking
+  // ==========================================
+  const syncToDb = async <T,>(operation: () => Promise<T>, errorContext: string): Promise<T | null> => {
+    try {
+      const result = await operation();
+      // Clear any previous sync error on success
+      setDbSyncError(null);
+      return result;
+    } catch (err: any) {
+      console.error(`Failed to sync ${errorContext}:`, err);
+      setDbSyncError(err.message || `Failed to sync ${errorContext}`);
+      return null;
+    }
+  };
+
   // Business Profile Updates
   const updateBusinessProfile = (profile: BusinessProfile) => {
     setBrandBrains((prev) => {
@@ -375,8 +445,11 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           profile,
         },
       };
-      if (isSupabaseConfigured && user) {
-        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      if (shouldUseSupabase) {
+        syncToDb(
+          () => upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]),
+          "Brand Brain profile"
+        );
       }
       return updated;
     });
@@ -392,8 +465,11 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           toneOfVoice: tone,
         },
       };
-      if (isSupabaseConfigured && user) {
-        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      if (shouldUseSupabase) {
+        syncToDb(
+          () => upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]),
+          "Brand Brain tone"
+        );
       }
       return updated;
     });
@@ -413,8 +489,11 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           faqs: [...prev[activeWorkspaceId].faqs, newFaq],
         },
       };
-      if (isSupabaseConfigured && user) {
-        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      if (shouldUseSupabase) {
+        syncToDb(
+          () => upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]),
+          "Brand Brain FAQ addition"
+        );
       }
       return updated;
     });
@@ -429,8 +508,11 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           faqs: prev[activeWorkspaceId].faqs.filter((f) => f.id !== id),
         },
       };
-      if (isSupabaseConfigured && user) {
-        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      if (shouldUseSupabase) {
+        syncToDb(
+          () => upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]),
+          "Brand Brain FAQ removal"
+        );
       }
       return updated;
     });
@@ -446,8 +528,11 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           doRules: [...prev[activeWorkspaceId].doRules, rule],
         },
       };
-      if (isSupabaseConfigured && user) {
-        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      if (shouldUseSupabase) {
+        syncToDb(
+          () => upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]),
+          "Brand Brain Do Rule addition"
+        );
       }
       return updated;
     });
@@ -462,8 +547,11 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           doRules: prev[activeWorkspaceId].doRules.filter((r) => r !== ruleToRemove),
         },
       };
-      if (isSupabaseConfigured && user) {
-        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      if (shouldUseSupabase) {
+        syncToDb(
+          () => upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]),
+          "Brand Brain Do Rule removal"
+        );
       }
       return updated;
     });
@@ -479,8 +567,11 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           dontRules: [...prev[activeWorkspaceId].dontRules, rule],
         },
       };
-      if (isSupabaseConfigured && user) {
-        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      if (shouldUseSupabase) {
+        syncToDb(
+          () => upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]),
+          "Brand Brain Don't Rule addition"
+        );
       }
       return updated;
     });
@@ -495,8 +586,11 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           dontRules: prev[activeWorkspaceId].dontRules.filter((r) => r !== ruleToRemove),
         },
       };
-      if (isSupabaseConfigured && user) {
-        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      if (shouldUseSupabase) {
+        syncToDb(
+          () => upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]),
+          "Brand Brain Don't Rule removal"
+        );
       }
       return updated;
     });
@@ -519,14 +613,18 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
     setSystemStats((prev) => ({ ...prev, totalAgents: prev.totalAgents + 1 }));
 
-    if (isSupabaseConfigured && user) {
-      insertAgent(newAgent).then((dbAgent) => {
-        if (dbAgent) {
-          setAgents((prev) =>
-            prev.map((a) => (a.id === newAgent.id ? dbAgent : a))
-          );
-        }
-      });
+    if (shouldUseSupabase) {
+      syncToDb(
+        () => insertAgent(newAgent).then((dbAgent) => {
+          if (dbAgent) {
+            setAgents((prev) =>
+              prev.map((a) => (a.id === newAgent.id ? dbAgent : a))
+            );
+          }
+          return dbAgent;
+        }),
+        "Agent creation"
+      );
     }
   };
 
@@ -534,8 +632,11 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setAgents((prev) =>
       prev.map((a) => (a.id === updatedAgent.id ? updatedAgent : a))
     );
-    if (isSupabaseConfigured && user) {
-      updateAgent(updatedAgent);
+    if (shouldUseSupabase) {
+      syncToDb(
+        () => updateAgentDb(updatedAgent),
+        "Agent update"
+      );
     }
   };
 
@@ -592,7 +693,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Supabase syncing for User message
     let dbConvId = supabaseConvIds[agentId];
-    if (isSupabaseConfigured && user) {
+    if (shouldUseSupabase) {
       try {
         if (!dbConvId) {
           const dbConv = await insertConversation(activeWorkspaceId, {
@@ -706,7 +807,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
 
         // Supabase syncing for Agent Response
-        if (isSupabaseConfigured && user && dbConvId) {
+        if (shouldUseSupabase && dbConvId) {
           try {
             await insertMessage(dbConvId, agentMsg);
             await updateConversation({
@@ -791,7 +892,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
 
         // Supabase syncing for Fallback Agent Response
-        if (isSupabaseConfigured && user && dbConvId) {
+        if (shouldUseSupabase && dbConvId) {
           try {
             await insertMessage(dbConvId, agentMsg);
             const textLower = text.toLowerCase();
@@ -855,12 +956,16 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       id: `scen-custom-${Date.now()}`
     };
     setCallScenarios((prev) => [...prev, newScen]);
-    if (isSupabaseConfigured && user) {
-      insertCallScenario(activeWorkspaceId, newScen).then((dbScenario) => {
-        if (dbScenario) {
-          setCallScenarios(prevScens => prevScens.map(sc => sc.id === newScen.id ? dbScenario : sc));
-        }
-      });
+    if (shouldUseSupabase) {
+      syncToDb(
+        () => insertCallScenario(activeWorkspaceId, newScen).then((dbScenario) => {
+          if (dbScenario) {
+            setCallScenarios(prevScens => prevScens.map(sc => sc.id === newScen.id ? dbScenario : sc));
+          }
+          return dbScenario;
+        }),
+        "Call Scenario"
+      );
     }
   };
 
@@ -895,8 +1000,11 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               lastSimulationResult: `${currentScore}% (${currentScore >= 90 ? "Excellent" : currentScore >= 75 ? "Good" : "Needs Work"})`,
               needsTraining
             };
-            if (isSupabaseConfigured && user) {
-              updateAgent(updatedAgent);
+            if (shouldUseSupabase) {
+              syncToDb(
+                () => updateAgentDb(updatedAgent),
+                "Agent update from scorecard"
+              );
             }
             return updatedAgent;
           }
@@ -905,20 +1013,22 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       );
     }
 
-    if (isSupabaseConfigured && user) {
+    if (shouldUseSupabase) {
       if (conversation) {
-        insertConversation(activeWorkspaceId, conversation).then(async (dbConv) => {
-          if (dbConv) {
-            for (const msg of conversation.messages) {
-              await insertMessage(dbConv.id, msg);
+        syncToDb(
+          async () => {
+            const dbConv = await createConversationWithMessages(activeWorkspaceId, conversation);
+            if (dbConv) {
+              const updatedSim = {
+                ...sim,
+                conversationId: dbConv.id
+              };
+              await insertCallSimulation(activeWorkspaceId, updatedSim);
             }
-            const updatedSim = {
-              ...sim,
-              conversationId: dbConv.id
-            };
-            await insertCallSimulation(activeWorkspaceId, updatedSim);
-          }
-        });
+            return dbConv;
+          },
+          "Call Simulation"
+        );
       }
     }
   };
@@ -970,18 +1080,22 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         ...prev,
         [activeWorkspaceId]: [newItem, ...workspaceItems]
       };
-      if (isSupabaseConfigured && user) {
-        insertTrainingItem(activeWorkspaceId, newItem).then((dbItem) => {
-          if (dbItem) {
-            setTrainingItems(prevCurrent => {
-              const currentItems = prevCurrent[activeWorkspaceId] || [];
-              return {
-                ...prevCurrent,
-                [activeWorkspaceId]: currentItems.map(item => item.id === newItem.id ? dbItem : item)
-              };
-            });
-          }
-        });
+      if (shouldUseSupabase) {
+        syncToDb(
+          () => insertTrainingItem(activeWorkspaceId, newItem).then((dbItem) => {
+            if (dbItem) {
+              setTrainingItems(prevCurrent => {
+                const currentItems = prevCurrent[activeWorkspaceId] || [];
+                return {
+                  ...prevCurrent,
+                  [activeWorkspaceId]: currentItems.map(item => item.id === newItem.id ? dbItem : item)
+                };
+              });
+            }
+            return dbItem;
+          }),
+          "Training Item creation"
+        );
       }
       return updated;
     });
@@ -999,8 +1113,11 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       )
     );
 
-    if (isSupabaseConfigured && user) {
-      updateTrainingItemStatus(id, "Approved");
+    if (shouldUseSupabase) {
+      syncToDb(
+        () => updateTrainingItemStatus(id, "Approved"),
+        "Training Item approval"
+      );
     }
   };
 
@@ -1028,8 +1145,11 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           doRules: [...prev[activeWorkspaceId].doRules, `Ensure replies to "${item.customerQuestion}" align with: ${correction.slice(0, 50)}...`],
         },
       };
-      if (isSupabaseConfigured && user) {
-        upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
+      if (shouldUseSupabase) {
+        syncToDb(
+          () => upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]),
+          "Brand Brain improvement FAQ"
+        );
       }
       return updated;
     });
@@ -1060,14 +1180,15 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       )
     );
 
-    if (isSupabaseConfigured && user) {
-      updateTrainingItemStatus(id, "Improved", correction);
-      insertConversation(activeWorkspaceId, resolvedConv).then(async (dbConv) => {
-        if (dbConv) {
-          await insertMessage(dbConv.id, resolvedConv.messages[0]);
-          await insertMessage(dbConv.id, resolvedConv.messages[1]);
-        }
-      });
+    if (shouldUseSupabase) {
+      syncToDb(
+        () => updateTrainingItemStatus(id, "Improved", correction),
+        "Training Item improvement"
+      );
+      syncToDb(
+        () => createConversationWithMessages(activeWorkspaceId, resolvedConv),
+        "Resolved conversation"
+      );
     }
   };
 
@@ -1087,9 +1208,15 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             dontRules: [...prev[activeWorkspaceId].dontRules, `Never say: "${item.aiAnswer}" when asked about "${item.customerQuestion.slice(0, 35)}..."`],
           },
         };
-        if (isSupabaseConfigured && user) {
-          upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]);
-          deleteTrainingItem(id);
+        if (shouldUseSupabase) {
+          syncToDb(
+            () => upsertBrandBrain(activeWorkspaceId, updated[activeWorkspaceId]),
+            "Brand Brain reject rule"
+          );
+          syncToDb(
+            () => deleteTrainingItem(id),
+            "Training Item deletion"
+          );
         }
         return updated;
       });
@@ -1148,25 +1275,30 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       totalBusinesses: prev.totalBusinesses + 1,
     }));
 
-    if (isSupabaseConfigured && user) {
-      createWorkspace(user.id, name, industry).then(async (dbWs) => {
-        if (dbWs) {
-          setWorkspaces(prevWs => prevWs.map(w => w.id === cleanId ? dbWs : w));
-          setBrandBrains(prevBrains => {
-            const updated = { ...prevBrains, [dbWs.id]: newBrain };
-            delete updated[cleanId];
-            return updated;
-          });
-          setActiveWorkspaceId(prevId => prevId === cleanId ? dbWs.id : prevId);
-          await upsertBrandBrain(dbWs.id, newBrain);
-          
-          const dbAgentInput = {
-            ...welcomeAgent,
-            linkedBrainId: dbWs.id
-          };
-          await insertAgent(dbAgentInput);
-        }
-      });
+    if (shouldUseSupabase) {
+      syncToDb(
+        async () => {
+          const dbWs = await createWorkspace(user.id, name, industry);
+          if (dbWs) {
+            setWorkspaces(prevWs => prevWs.map(w => w.id === cleanId ? dbWs : w));
+            setBrandBrains(prevBrains => {
+              const updated = { ...prevBrains, [dbWs.id]: newBrain };
+              delete updated[cleanId];
+              return updated;
+            });
+            setActiveWorkspaceId(dbWs.id);
+            await upsertBrandBrain(dbWs.id, newBrain);
+            
+            const dbAgentInput = {
+              ...welcomeAgent,
+              linkedBrainId: dbWs.id
+            };
+            await insertAgent(dbAgentInput);
+          }
+          return dbWs;
+        },
+        "Client workspace creation"
+      );
     }
   };
 
@@ -1175,6 +1307,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       await supabase.auth.signOut();
     }
     setUser(null);
+    loadedUserRef.current = null;
     setWorkspaces(initialWorkspaces);
     setBrandBrains(initialBrandBrains);
     setAgents(initialAgents);
@@ -1182,7 +1315,10 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setTrainingItems(initialTrainingItems);
     setCallScenarios(initialCallScenarios);
     setCallSimulations({});
-    setActiveWorkspaceId("luna-aesthetics");
+    setActiveWorkspaceIdRaw("luna-aesthetics");
+    setLastSyncTimestamp(null);
+    setDbSyncError(null);
+    setDbConnectionError(null);
     router.push("/login");
   };
 
@@ -1233,6 +1369,16 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         authLoading,
         isSupabaseConfigured,
         logout,
+        onboardingError,
+        dbSyncError,
+        dbConnectionError,
+        retryOnboarding,
+        shouldUseSupabase,
+        isSandboxMode,
+        isDatabaseMode,
+        isOfflineFallbackActive,
+        lastSyncTimestamp,
+        refetchData,
         setActiveWorkspaceId,
         addCustomScenario,
         saveCallSimulation,

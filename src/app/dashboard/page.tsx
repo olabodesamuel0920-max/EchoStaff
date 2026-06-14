@@ -19,6 +19,7 @@ export default function DashboardOverview() {
   const { 
     activeWorkspaceId, 
     activeWorkspace, 
+    workspaces,
     agents, 
     conversations, 
     trainingItems,

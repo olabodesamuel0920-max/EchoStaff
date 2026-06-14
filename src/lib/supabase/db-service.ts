@@ -12,6 +12,7 @@ import {
 
 // ==========================================
 // Data Mappers (DB schema -> Frontend types)
+// All snake_case to camelCase mapping is centralized here.
 // ==========================================
 
 export const mapWorkspace = (db: any): ClientWorkspace => ({
@@ -106,25 +107,39 @@ export const mapCallSimulation = (db: any): CallSimulation => ({
 });
 
 // ==========================================
+// Workspace Bundle Type (consolidated load)
+// ==========================================
+
+export interface WorkspaceBundle {
+  workspaces: ClientWorkspace[];
+  brandBrains: Record<string, BrandBrain>;
+  agents: Agent[];
+  conversations: Record<string, Conversation[]>;
+  trainingItems: Record<string, TrainingItem[]>;
+  callScenarios: CallScenario[];
+  callSimulations: Record<string, CallSimulation[]>;
+}
+
+// ==========================================
 // Database Reads
 // ==========================================
 
-export async function fetchWorkspaces() {
+export async function fetchWorkspaces(): Promise<ClientWorkspace[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.from("workspaces").select("*");
   if (error) {
     console.error("Error fetching workspaces:", error);
-    return [];
+    throw new Error(`Failed to fetch workspaces: ${error.message}`);
   }
   return data.map(mapWorkspace);
 }
 
-export async function fetchBrandBrains() {
+export async function fetchBrandBrains(): Promise<Record<string, BrandBrain>> {
   if (!supabase) return {};
   const { data, error } = await supabase.from("brand_brains").select("*");
   if (error) {
     console.error("Error fetching brand brains:", error);
-    return {};
+    throw new Error(`Failed to fetch brand brains: ${error.message}`);
   }
   const brains: Record<string, BrandBrain> = {};
   data.forEach((dbBrain: any) => {
@@ -133,12 +148,12 @@ export async function fetchBrandBrains() {
   return brains;
 }
 
-export async function fetchAgents() {
+export async function fetchAgents(): Promise<Agent[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.from("agents").select("*");
   if (error) {
     console.error("Error fetching agents:", error);
-    return [];
+    throw new Error(`Failed to fetch agents: ${error.message}`);
   }
   return data.map(mapAgent);
 }
@@ -148,7 +163,7 @@ export async function fetchConversations() {
   const { data, error } = await supabase.from("conversations").select("*").order("created_at", { ascending: false });
   if (error) {
     console.error("Error fetching conversations:", error);
-    return [];
+    throw new Error(`Failed to fetch conversations: ${error.message}`);
   }
   return data;
 }
@@ -158,7 +173,7 @@ export async function fetchAllMessages() {
   const { data, error } = await supabase.from("messages").select("*").order("created_at", { ascending: true });
   if (error) {
     console.error("Error fetching messages:", error);
-    return [];
+    throw new Error(`Failed to fetch messages: ${error.message}`);
   }
   return data.map((msg: any) => ({
     ...mapMessage(msg),
@@ -171,17 +186,17 @@ export async function fetchTrainingItems() {
   const { data, error } = await supabase.from("training_items").select("*").order("created_at", { ascending: false });
   if (error) {
     console.error("Error fetching training items:", error);
-    return [];
+    throw new Error(`Failed to fetch training items: ${error.message}`);
   }
   return data;
 }
 
-export async function fetchCallScenarios() {
+export async function fetchCallScenarios(): Promise<CallScenario[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.from("call_scenarios").select("*");
   if (error) {
     console.error("Error fetching call scenarios:", error);
-    return [];
+    throw new Error(`Failed to fetch call scenarios: ${error.message}`);
   }
   return data.map(mapCallScenario);
 }
@@ -191,9 +206,113 @@ export async function fetchCallSimulations() {
   const { data, error } = await supabase.from("call_simulations").select("*").order("created_at", { ascending: false });
   if (error) {
     console.error("Error fetching call simulations:", error);
-    return [];
+    throw new Error(`Failed to fetch call simulations: ${error.message}`);
   }
   return data;
+}
+
+// ==========================================
+// Consolidated Loaders
+// ==========================================
+
+/**
+ * loadWorkspaceBundle(): Loads all user data from Supabase in parallel.
+ * Returns a fully-mapped WorkspaceBundle ready for direct consumption by state-context.
+ * Throws on any critical fetch failure.
+ */
+export async function loadWorkspaceBundle(): Promise<WorkspaceBundle> {
+  const [ws, brains, ags, dbConvs, dbMsgs, items, scenarios, sims] = await Promise.all([
+    fetchWorkspaces(),
+    fetchBrandBrains(),
+    fetchAgents(),
+    fetchConversations(),
+    fetchAllMessages(),
+    fetchTrainingItems(),
+    fetchCallScenarios(),
+    fetchCallSimulations(),
+  ]);
+
+  // Group messages by conversation ID
+  const messagesByConv: Record<string, Message[]> = {};
+  dbMsgs.forEach((msg: any) => {
+    const cid = msg.conversationId;
+    if (!messagesByConv[cid]) messagesByConv[cid] = [];
+    messagesByConv[cid].push({
+      id: msg.id,
+      sender: msg.sender,
+      text: msg.text,
+      timestamp: msg.timestamp,
+    });
+  });
+
+  // Group conversations by workspace ID
+  const convsMap: Record<string, Conversation[]> = {};
+  dbConvs.forEach((c: any) => {
+    const wsId = c.workspace_id;
+    if (!convsMap[wsId]) convsMap[wsId] = [];
+    convsMap[wsId].push(mapConversation(c, messagesByConv[c.id] || []));
+  });
+
+  // Group training items by workspace ID
+  const itemsMap: Record<string, TrainingItem[]> = {};
+  items.forEach((item: any) => {
+    const wsId = item.workspace_id;
+    if (!itemsMap[wsId]) itemsMap[wsId] = [];
+    itemsMap[wsId].push(mapTrainingItem(item));
+  });
+
+  // Group call simulations by workspace ID
+  const simsMap: Record<string, CallSimulation[]> = {};
+  sims.forEach((sim: any) => {
+    const wsId = sim.workspace_id;
+    if (!simsMap[wsId]) simsMap[wsId] = [];
+    simsMap[wsId].push(mapCallSimulation(sim));
+  });
+
+  return {
+    workspaces: ws,
+    brandBrains: brains,
+    agents: ags,
+    conversations: convsMap,
+    trainingItems: itemsMap,
+    callScenarios: scenarios,
+    callSimulations: simsMap,
+  };
+}
+
+/**
+ * loadDashboardMetrics(): Returns the workspace bundle alongside
+ * computed aggregate metrics for the dashboard overview page.
+ */
+export async function loadDashboardMetrics() {
+  const bundle = await loadWorkspaceBundle();
+  
+  let totalConversations = 0;
+  Object.values(bundle.conversations).forEach(convs => {
+    totalConversations += convs.length;
+  });
+
+  let totalTrainingItems = 0;
+  Object.values(bundle.trainingItems).forEach(items => {
+    totalTrainingItems += items.length;
+  });
+
+  let totalSimulations = 0;
+  Object.values(bundle.callSimulations).forEach(sims => {
+    totalSimulations += sims.length;
+  });
+
+  return {
+    ...bundle,
+    metrics: {
+      totalWorkspaces: bundle.workspaces.length,
+      totalAgents: bundle.agents.length,
+      totalConversations,
+      totalTrainingItems,
+      totalCallScenarios: bundle.callScenarios.length,
+      totalSimulations,
+    },
+  };
 }
 
 // ==========================================
@@ -210,7 +329,22 @@ export async function createWorkspace(ownerId: string, name: string, industry: s
 
   if (error) {
     console.error("Error creating workspace:", error);
-    return null;
+    throw new Error(`Failed to create workspace: ${error.message}`);
+  }
+  return mapWorkspace(data);
+}
+
+export async function updateWorkspace(id: string, name: string, industry: string) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from("workspaces").update({
+    name,
+    industry,
+    updated_at: new Date().toISOString(),
+  }).eq("id", id).select().single();
+
+  if (error) {
+    console.error("Error updating workspace:", error);
+    throw new Error(`Failed to update workspace: ${error.message}`);
   }
   return mapWorkspace(data);
 }
@@ -233,7 +367,7 @@ export async function upsertBrandBrain(workspaceId: string, brain: BrandBrain) {
   const { data, error } = await supabase.from("brand_brains").upsert(dbBrain, { onConflict: "workspace_id" }).select().single();
   if (error) {
     console.error("Error upserting brand brain:", error);
-    return null;
+    throw new Error(`Failed to upsert brand brain: ${error.message}`);
   }
   return mapBrandBrain(data);
 }
@@ -258,7 +392,7 @@ export async function insertAgent(agent: Agent) {
   const { data, error } = await supabase.from("agents").insert(dbAgent).select().single();
   if (error) {
     console.error("Error inserting agent:", error);
-    return null;
+    throw new Error(`Failed to insert agent: ${error.message}`);
   }
   return mapAgent(data);
 }
@@ -281,7 +415,7 @@ export async function updateAgent(agent: Agent) {
   const { data, error } = await supabase.from("agents").update(dbAgent).eq("id", agent.id).select().single();
   if (error) {
     console.error("Error updating agent:", error);
-    return null;
+    throw new Error(`Failed to update agent: ${error.message}`);
   }
   return mapAgent(data);
 }
@@ -303,7 +437,7 @@ export async function insertConversation(workspaceId: string, conv: Omit<Convers
   const { data, error } = await supabase.from("conversations").insert(dbConv).select().single();
   if (error) {
     console.error("Error inserting conversation:", error);
-    return null;
+    throw new Error(`Failed to insert conversation: ${error.message}`);
   }
   return data;
 }
@@ -323,14 +457,33 @@ export async function updateConversation(conv: Omit<Conversation, "messages">) {
   const { data, error } = await supabase.from("conversations").update(dbConv).eq("id", conv.id).select().single();
   if (error) {
     console.error("Error updating conversation:", error);
-    return null;
+    throw new Error(`Failed to update conversation: ${error.message}`);
   }
   return data;
 }
 
+/**
+ * createConversationWithMessages(): Atomically inserts a conversation
+ * and all its messages. Returns the database conversation ID.
+ */
+export async function createConversationWithMessages(workspaceId: string, conversation: Conversation) {
+  if (!supabase) return null;
+
+  // Insert the conversation first
+  const dbConv = await insertConversation(workspaceId, conversation);
+  if (!dbConv) return null;
+
+  // Insert all messages sequentially to preserve order
+  for (const msg of conversation.messages) {
+    await insertMessage(dbConv.id, msg);
+  }
+
+  return dbConv;
+}
+
 export async function insertMessage(conversationId: string, msg: Message) {
   if (!supabase) return null;
-  const isMockId = msg.id.startsWith("msg-");
+  const isMockId = msg.id.startsWith("msg-") || msg.id === "cm1" || msg.id === "cm2";
   const dbMsg = {
     id: isMockId ? undefined : msg.id,
     conversation_id: conversationId,
@@ -341,7 +494,7 @@ export async function insertMessage(conversationId: string, msg: Message) {
   const { data, error } = await supabase.from("messages").insert(dbMsg).select().single();
   if (error) {
     console.error("Error inserting message:", error);
-    return null;
+    throw new Error(`Failed to insert message: ${error.message}`);
   }
   return mapMessage(data);
 }
@@ -361,7 +514,7 @@ export async function insertTrainingItem(workspaceId: string, item: TrainingItem
   const { data, error } = await supabase.from("training_items").insert(dbItem).select().single();
   if (error) {
     console.error("Error inserting training item:", error);
-    return null;
+    throw new Error(`Failed to insert training item: ${error.message}`);
   }
   return mapTrainingItem(data);
 }
@@ -379,7 +532,7 @@ export async function updateTrainingItemStatus(id: string, status: string, corre
   const { data, error } = await supabase.from("training_items").update(updates).eq("id", id).select().single();
   if (error) {
     console.error("Error updating training item status:", error);
-    return null;
+    throw new Error(`Failed to update training item: ${error.message}`);
   }
   return mapTrainingItem(data);
 }
@@ -389,7 +542,7 @@ export async function deleteTrainingItem(id: string) {
   const { error } = await supabase.from("training_items").delete().eq("id", id);
   if (error) {
     console.error("Error deleting training item:", error);
-    return false;
+    throw new Error(`Failed to delete training item: ${error.message}`);
   }
   return true;
 }
@@ -412,7 +565,7 @@ export async function insertCallScenario(workspaceId: string, scenario: CallScen
   const { data, error } = await supabase.from("call_scenarios").insert(dbScenario).select().single();
   if (error) {
     console.error("Error inserting call scenario:", error);
-    return null;
+    throw new Error(`Failed to insert call scenario: ${error.message}`);
   }
   return mapCallScenario(data);
 }
@@ -436,7 +589,7 @@ export async function insertCallSimulation(workspaceId: string, sim: CallSimulat
   const { data, error } = await supabase.from("call_simulations").insert(dbSim).select().single();
   if (error) {
     console.error("Error inserting call simulation:", error);
-    return null;
+    throw new Error(`Failed to insert call simulation: ${error.message}`);
   }
   return mapCallSimulation(data);
 }

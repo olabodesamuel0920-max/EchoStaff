@@ -199,3 +199,74 @@ The switcher topbar header:
 - Renders a **Local Sandbox** (purple badge) when unconfigured.
 - Renders a **Supabase Connected** (emerald badge), user email initials (`user.email`), and a quick-action **Logout** button when authenticated.
 
+---
+
+## 9. Phase 2A.1: Supabase Operations QA Lock Upgrades
+
+We have successfully implemented and verified **Phase 2A.1: Supabase Operations QA Lock**, introducing zero-crash error boundaries, self-healing offline modes, session recovery alerts, and schema check verification.
+
+### A. State Telemetry & Self-Healing Offline Mode
+- Exposed state variables `onboardingError`, `dbSyncError`, and `dbConnectionError` inside the global App State Context.
+- Wrapped database loading in `loadSupabaseData` with a robust `try/catch` block. If the cloud database is offline, inaccessible, or authentication tokens mismatch, the system flags `dbConnectionError` and dynamically triggers a fallback to **Local Sandbox Mode**. This prevents application crashes and keeps the demo workspace functional.
+- Exposed a `retryOnboarding` method in the state provider to let users manually kick off workspace initialization if setup halts.
+
+### B. Onboarding Failure Recovery Screen
+- Modified the Dashboard layout (`src/app/dashboard/layout.tsx`) to intercept layout rendering. If `onboardingError` is active, it renders a cinematic glassmorphic recovery screen rather than rendering the dashboard panels.
+- This screen displays the exact error message, provides a **Retry Onboarding** CTA button that updates with a spinner, and includes a **Logout to Demo Mode** option to quickly transition the user back to the offline sandbox.
+
+### C. Write Sync Alert Banners
+- All database write operations in `state-context.tsx` (for profiles, brand brain rules, agents, conversations, simulations, and training logs) are wrapped in `.catch()` handlers that log sync exceptions to `dbSyncError` instead of crashing the React state hierarchy.
+- Upgraded the Dashboard Topbar (`src/components/dashboard-topbar.tsx`) to render sticky warning banners right below the main header:
+  - If `dbConnectionError` is present: Displays an amber alert warning that the database connection is offline and updates are being cached in local sandbox storage.
+  - If `dbSyncError` is present (and connection is otherwise live): Displays a red alert warning that a specific database sync failed and the system is retrying.
+
+### D. Login Page Static Pre-rendering Upgrade
+- Refactored `/login/page.tsx` by wrapping the form in a React `<Suspense>` boundary. This protects Next.js static page compilation when using the client-side `useSearchParams()` hook.
+- Added URL parameter detection to support session expiration and auth callback redirects:
+  - If `error=session-expired` is matched, it renders: *"Your session has expired. Please sign in again."*
+  - If `error=auth-callback-failed` is matched, it renders: *"Authentication callback failed. Please try registering again."*
+
+### E. Row Level Security & Telemetry Verification
+- Validated that RLS policies on all user-owned tables successfully block cross-tenant database reads/writes.
+- Confirmed that administrative tokens (`SUPABASE_SERVICE_ROLE_KEY`) are kept server-side and are completely absent from the client bundles.
+
+---
+
+## 10. Phase 2B: Database-First State Integrity Lock Upgrades
+
+We have successfully implemented and verified **Phase 2B: Database-First State Integrity Lock**. This phase locks in the database as the primary source of truth when authenticated and configured, while preserving the Sandbox Mode and local caching.
+
+### A. Unified Data Mode Logic
+- **`shouldUseSupabase`**: Evaluates to `true` if Supabase is configured, a user is logged in, and no active database connection error is present (`isSupabaseConfigured && !!user && !dbConnectionError`).
+- **Data Mode Helpers**: Exposed computed state indicators to cleanly route operations and customize UI displays:
+  - `isSandboxMode`: Active if Supabase is unconfigured, or if configured but no user is logged in.
+  - `isDatabaseMode`: Active when connected and authenticated.
+  - `isOfflineFallbackActive`: Active if Supabase is configured and the user was logged in, but the database connection failed (`!!dbConnectionError`).
+
+### B. User-Scoped Active Workspace Persistence
+- Scoped workspace caching using `echostaff_active_workspace_id_${user.id}`.
+- Implemented ownership verification on startup: the restored workspace ID must belong to the active workspace list, failing which it defaults back to the first available workspace for the user.
+
+### C. Refactored Supabase Data Access Layer (`db-service.ts`)
+- Implemented comprehensive, type-safe camelCase mapping functions:
+  - `loadWorkspaceBundle()`: Fetches profiles, workspaces, brand brains, agents, conversations, messages, training items, call scenarios, and call simulations in parallel.
+  - `updateWorkspace()`, `updateBrandBrain()`, `createAgent()`, `updateAgent()`, `createConversationWithMessages()`, `appendMessage()`, `createTrainingItem()`, `updateTrainingItem()`, `createCallScenario()`, `saveCallSimulation()`, `loadDashboardMetrics()`.
+
+### D. App State Context Integration (`state-context.tsx`)
+- Audited and updated all context state actions (FAQ, Rules, Agents, Call simulations, Training items) to perform optimistic UI updates and call `syncToDb()`.
+- Implemented the `syncToDb()` helper to handle writes safely: on failure, it logs details to `dbSyncError` instead of throwing, allowing user work to be cached locally.
+- Prevented duplicate conversation entries by caching Supabase conversation IDs by agent ID.
+- Exposed a public `refetchData()` method to manually trigger updates.
+
+### E. Premium Sync Telemetry Popover (`dashboard-topbar.tsx`)
+- Replaced the simple mode badge with a glassmorphic Popover detailing live state telemetry:
+  - Displays database mode ("Supabase Database" vs "Local Sandbox Demo").
+  - Displays connection health ("Online" vs "Offline Fallback Active").
+  - Displays active user email and initials.
+  - Displays Supabase config state.
+  - Displays last successful sync timestamp.
+  - Displays last sync errors.
+  - Contains a **Force Refetch** action button that triggers `refetchData()`.
+
+
+
