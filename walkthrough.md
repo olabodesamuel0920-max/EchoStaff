@@ -303,6 +303,163 @@ We have successfully implemented and verified **Phase 2C: Embeddable Website Cha
 - Website widget chat logs and conversation summaries appear in `/dashboard/conversations`.
 - Integrated widget metrics (total volume, hot leads share, follow-up rates, and domain statuses) directly into the `/dashboard/analytics` dashboard layout.
 
+---
+
+## 12. Phase 2C.1: Website Widget Production QA Lock
+
+We have successfully completed and verified **Phase 2C.1: Website Widget Production QA Lock**, stabilizing our embeddable widget routes, security constraints, and abuse limits before proceeding to voice integrations.
+
+### A. Production Widget QA Result Summary
+
+| Target Route / Feature | QA Verification | Expected Security / Logic | Status |
+| :--- | :--- | :--- | :--- |
+| `/dashboard/widget` | Config Persistence | Custom style, greetings, agent matching, and allowed domains successfully persist across refreshes. | **PASSED** |
+| `/widget.js` | Script Serving | Served as raw static JS bundle with dynamic iframe injection matching target port origin dynamically. | **PASSED** |
+| `/test_widget.html` | Embed Mockup QA | Integrates query parameter loader for seamless testing on custom dev ports. | **PASSED** |
+| `/embed/widget/[publicKey]` | Server Config Resolution | Fetches widget configurations server-side; displays "Offline" state securely if widget is disabled or key is invalid. | **PASSED** |
+| `/api/widget/chat` | Secure Response Routing | AI replies stream safely without leakage of api keys, brand brain templates, or custom developer prompts. | **PASSED** |
+| `/dashboard/conversations` | Conversation Syncing | Saves logs under "Website Widget" channel; populates analytics dashboard graphs. | **PASSED** |
+| `/dashboard/analytics` | Analytics Syncing | Properly records volume metrics, lead quality, and follow-up ratios. | **PASSED** |
+
+### B. test_widget.html Usage & Port Agnosticism
+- Placed a local QA mockup at `public/test_widget.html`.
+- **Placeholder Safety**: The file does not hardcode any production keys. It uses a placeholder snippet for reference:
+  `data-echostaff-widget="PASTE_PUBLIC_KEY_HERE"`
+- **Dev Port Agnosticism**: The test page is completely port agnostic and dynamically maps window locations (e.g. `http://localhost:3000/test_widget.html`, `http://localhost:3001/test_widget.html`, or custom domain names).
+- **Query Parameter Loading**: Supports testing configurations via a query string:
+  `/test_widget.html?key=PUBLIC_KEY`
+  Appending the key dynamically registers, loads, and initializes the correct widget script instantly.
+
+### C. Advanced Allowed Domain Safety & Header Checks
+- `/api/widget/chat` restricts incoming traffic based on configured `allowed_domains` lists:
+  - If domains are set and `origin` or `referer` headers are missing (e.g. CLI curl, automated scripts, custom clients), the request is rejected with a `403 Forbidden` error.
+  - Returns a sanitized, safe public error: `Security Check: Origin verification headers are missing.`
+  - Normalized matching rules strip protocols and `www.` prefixes (e.g. `https://www.example.com` and `example.com` both successfully authorize).
+  - Invalid public keys or disabled configurations fail safely with clean errors (e.g. `Invalid widget public key.` or `This assistant is currently offline.`).
+
+### D. Synchronized Abuse Guard Limits
+- Aligned abuse guard limits across both the React frontend widget client and the Next.js backend chat API:
+  - **Message Length Limit**: Checked at both client-side inputs and backend routes to reject payloads exceeding **1000 characters**.
+  - **Session Exchange Limit**: Synchronized at **15 user messages** per session. The backend API counts user-specific messages (`role: 'user'`) in the database for the given `sessionId`. If the count is 15 or more, it rejects the message with a `429 Too Many Requests` status, returning the synchronized copy:
+    `Session limit reached. To prevent abuse, this chat is restricted to 15 user messages.`
+  - The frontend locks the input form, disables submit, and displays the exact warning banner when this limit is hit.
+
+### E. Vercel Staging & Production Deployment Testing Instructions
+1. Deploy the changes to your Vercel project environment (ensuring env keys for database access are bound).
+2. Navigate to your dashboard, register/login, go to **Website Widget**, configure styling/greeting, add your testing domains (e.g. `test-domain.com` or local testing aliases), and copy the script snippet.
+3. Open `public/test_widget.html` on your deployment or run locally:
+   `https://YOUR-APP.vercel.app/test_widget.html?key=YOUR_WIDGET_PUBLIC_KEY`
+4. Verify styling, check character/session thresholds, confirm origin header blocks, and verify logs show up in **Conversations** as "Website Widget".
+
+### F. Known Limitations
+1. **IP Rate Limiting**: Limit counts check database logs. A production-grade memory cache (like Upstash Redis) is recommended for high-load DDoS protection.
+2. **Local Sandbox Fallback**: Preview mode lacks database context, meaning it bypasses allowed domain matches and session limit records, falling back to local memory caches.
+
+### G. Recommended Next Phase
+- **EchoStaff AI Phase 2B.1**: Supabase Live Connection Verification Lock (Completed).
+- **EchoStaff AI Phase 2D**: Private Beta Deployment Pack.
+
+---
+
+## 13. Phase 2B.1: Supabase Live Connection Verification Lock
+
+We have successfully implemented and verified **Phase 2B.1: Supabase Live Connection Verification Lock**, introducing self-diagnostics dashboards and secure connection endpoints to guarantee the database runs safely in production environments.
+
+### A. Server-Side Diagnostics Endpoint (`/api/system/supabase-check`)
+- Implemented a secure, server-side route `/api/system/supabase-check` that performs sanity checks:
+  - Validates environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) are loaded.
+  - Queries every key table (`profiles`, `workspaces`, `brand_brains`, `agents`, `conversations`, `widget_configs`) via `supabaseAdmin` (Service Role client).
+  - Returns only safe boolean flags, preventing leakages of API keys, URLs, project IDs, or internal stack traces.
+  - Injects `Cache-Control: no-store` headers to ensure diagnostic checks are always fresh and never cached.
+
+### B. Platform Operations Diagnostics Panel (`/dashboard/system-check`)
+- Built a dedicated client view styled as a premium operations console displaying connection mode, current user, active session, and active workspace parameters.
+- Conducts client-side table access scans using the anon Supabase browser client to verify individual table permissions, confirming that the current user has authorized read access.
+- Pulls backend diagnostics parameters dynamically to correlate client-side and server-side connection health.
+
+### C. Supabase Live Connection & Vercel Checklist
+
+#### 1. SQL Migrations Checklist
+- [x] Run `supabase/schema.sql` to initialize profiles, workspaces, brand_brains, agents, conversations, messages, training_items, call_scenarios, and call_simulations.
+- [x] Run `supabase/migrations/002_widget_configs.sql` to initialize the `widget_configs` table and its policies.
+
+#### 2. Vercel Env Configuration Checklist
+- [x] Configure `NEXT_PUBLIC_SUPABASE_URL` with your Supabase API project URL.
+- [x] Configure `NEXT_PUBLIC_SUPABASE_ANON_KEY` with your project public anon API key.
+- [x] Configure `SUPABASE_SERVICE_ROLE_KEY` with your private service role key.
+- [x] Configure `OPENAI_API_KEY` with your OpenAI API credential.
+
+#### 3. RLS Isolation & Multi-Tenancy Checklist
+- [x] **Workspace Isolation**: Verify that a user cannot retrieve workspaces belonging to another owner.
+- [x] **Brand Brain Isolation**: Verify that rules, tone guidelines, and FAQs are strictly query-restricted to the workspace owner.
+- [x] **AI Agent Isolation**: Verify that agent profiles and parameters are only accessible by the tenant owner.
+- [x] **Conversation Isolation**: Verify that widget chat sessions and message tables block cross-tenant read/write attempts.
+- [x] **Widget Configs Isolation**: Verify that public widget config rows are only writable by their respective workspace owners.
+
+### D. Known Issues and Solutions
+1. **PowerShell Scripting Block**: Executing `npm run build` directly triggers a PowerShell execution restriction on Windows environments.
+   - *Solution*: Execute via `npm.cmd run build` which bypasses PowerShell script execution policy checks safely.
+2. **Client-Side RLS Access Queries**: Anon client queries on table rows return `[]` (empty arrays) when policies block access instead of throwing database errors.
+   - *Solution*: Verify reachability by checking if the query succeeds without errors (`error === null`), even if data arrays are empty, while ensuring write/update calls are strictly protected by validation functions.
+
+### E. Phase 2D Readiness Status
+- **Status**: **COMPLETE** (Supabase connection diagnostics verified and locked).
+
+---
+
+## 14. Phase 2D: Private Beta Deployment Pack
+
+We have successfully implemented and verified **Phase 2D: Private Beta Deployment Pack**, establishing a dedicated Private Beta control console (`/dashboard/beta`) to safely manage the onboarding, installation, safety configuration, and daily monitoring of our first pilot client.
+
+### A. Dynamic Beta Readiness Score
+- Computes a launch-readiness score (0-100%) in real-time using **12 distinct workspace checks**:
+  - **Brand Brain Profile**: Business Overview exists, >=3 products/services listed, Pricing Notes added, Policies documented.
+  - **Brand Brain Knowledge**: >=5 FAQs populated, >=3 DO rules configured, >=3 DON'T rules configured.
+  - **Failsafe Setup**: Human Handoff Rules completed (and stored safely).
+  - **Deployment Configurations**: At least 1 active agent set, website widget enabled, allowed domains configured.
+  - **Verifications**: At least 1 successful test conversation recorded through the website widget.
+- Map thresholds to visual state badges:
+  - `0 - 49%`: **Not Ready**
+  - `50 - 79%`: **Almost Ready**
+  - `80 - 100%`: **Ready for Controlled Beta**
+- Renders a list of missing setup items and dynamically suggests the next immediate action (e.g. configuring active agent or domain restrictions).
+
+### B. Launch Readiness Checklist
+- Separates setup tasks into:
+  - **Auto-Verified checks**: Automatically matches state elements (Overview, FAQs count, active agent, widget allowed domains, widget test chats).
+  - **Manual operational checks**: Checkboxes for high-risk manual processes (Website embed script loaded, Owner follow-up flow confirmed, Test conversation reviewed, and Client approved beta monitoring). Manual checklist states are persisted in `localStorage` scoped by workspace ID.
+
+### C. Client Onboarding Intake Form & Copy Action
+- Embeds a copyable, pre-structured **Client Intake Template** directly in the dashboard UI.
+- Generates business-specific details (products, prices, policies, FAQs) dynamically from the active Brand Brain state, leaving clear guidelines for empty metadata (opening hours, tone limits, words to avoid, human contact, delivery rules).
+- Includes a one-click copy button with active visual feedback checkmarks.
+
+### D. Widget Installation Guide & Snippets
+- Displays easy-to-use installation code blocks for **HTML**, **Next.js**, **WordPress**, and **Webflow/Framer** sites.
+- Snippet dynamically targets the active deployment domain (e.g., `https://echo-staff.vercel.app/widget.js` or custom local dev ports).
+- Features highly visible warning banners reminding developers to only install script embeds on authorized domains to prevent `403 Forbidden` API header blocks.
+
+### E. Human Handoff Config & Safety Rules
+- Integrates editing fields for Handoff Contact Name, Email/WhatsApp contact, and Handoff Rules.
+- **Safety JSON Serialization**: Safely serializes handoff configs as JSON metadata inside the existing database `owner_notes` field. This prevents database schema breakage, maintains plain-text fallback parsing for existing setups, and allows the UI to easily transition to a dedicated `handoff_rules` table later.
+- List of required safety handoff situations: `angry customer`, `payment issue`, `refund request`, `custom quote request`, `low confidence answer`, `policy not found`, `legal/medical/financial claims`, and `urgent complaint`.
+
+### F. Real-Time Beta Monitoring Panel
+- Displays live statistics derived directly from the database and workspace states:
+  - **Widget Chats Today**: Count of conversations on the `Website Widget` channel.
+  - **Hot Leads**: Conversations flagged with High/Warm intent status.
+  - **Follow-ups Needed**: Open cases flagged for owner review.
+  - **Low Confidence Chats**: Count of dialogues trigger fallback replies or AI connectivity faults.
+  - **Sync status**: Displays database connectivity or sandbox indications.
+
+### G. Known Limitations
+1. **IP Rate Limiting**: The system relies on message database logs. Under heavy production loads, it is recommended to bind a Redis cache.
+2. **Channel Limits**: The website widget is the sole active channel; real phone routing and WhatsApp setups are visual indicators.
+
+### H. Recommended Next Phase
+- **EchoStaff AI Phase 2E**: Voice and VoIP Gateways integration using Twilio or VAPI voice lines to connect real inbound/outbound phone calls to active workspace agents.
+
+
 
 
 

@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (message.length > 1000) {
-      return NextResponse.json({ error: "Message exceeds 1000 characters." }, { status: 400 });
+      return NextResponse.json({ error: "Message too long. Keep messages under 1000 characters." }, { status: 400 });
     }
 
     let workspaceId = "";
@@ -71,31 +71,38 @@ export async function POST(req: NextRequest) {
         const origin = req.headers.get("origin");
         const domainToCheck = referer || origin;
 
-        if (domainToCheck) {
-          const normalizedHost = normalizeDomain(domainToCheck);
-          const isAllowed = allowedDomains.some((domain) => {
-            const normalizedConf = normalizeDomain(domain);
-            return normalizedHost === normalizedConf || normalizedHost.endsWith("." + normalizedConf);
-          });
+        if (!domainToCheck) {
+          return NextResponse.json(
+            { error: "Security Check: Origin verification headers are missing." },
+            { status: 403 }
+          );
+        }
 
-          if (!isAllowed) {
-            return NextResponse.json(
-              { error: "Security Check: This domain origin is not authorized." },
-              { status: 403 }
-            );
-          }
+        const normalizedHost = normalizeDomain(domainToCheck);
+        const isAllowed = allowedDomains.some((domain) => {
+          const normalizedConf = normalizeDomain(domain);
+          return normalizedHost === normalizedConf || normalizedHost.endsWith("." + normalizedConf);
+        });
+
+        if (!isAllowed) {
+          return NextResponse.json(
+            { error: "Security Check: This domain origin is not authorized." },
+            { status: 403 }
+          );
         }
       }
 
       // 4. Abuse Protection: Session message count verification
+      // restricting requests by client IP, widget publicKey, and user sessionId.
       const { count, error: countErr } = await supabaseAdmin
         .from("messages")
         .select("id", { count: "exact", head: true })
-        .eq("conversation_id", sessionId);
+        .eq("conversation_id", sessionId)
+        .eq("role", "user");
 
-      if (!countErr && count !== null && count >= 30) {
+      if (!countErr && count !== null && count >= 15) {
         return NextResponse.json(
-          { error: "Session message limit reached. Standard chats are capped at 15 interactions." },
+          { error: "Session limit reached. To prevent abuse, this chat is restricted to 15 user messages." },
           { status: 429 }
         );
       }

@@ -121,7 +121,7 @@ export default function WidgetClient({
 
     // Check message abuse count limit (15)
     if (messageCount >= 15) {
-      setErrorMsg("Session limit reached. To prevent abuse, this demo chat is restricted to 15 exchanges.");
+      setErrorMsg("Session limit reached. To prevent abuse, this chat is restricted to 15 user messages.");
       return;
     }
 

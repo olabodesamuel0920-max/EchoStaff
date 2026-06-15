@@ -21,6 +21,9 @@ export interface BrandBrain {
   doRules: string[];
   dontRules: string[];
   exampleReplies: string[];
+  handoffName?: string;
+  handoffContact?: string;
+  handoffRules?: string;
 }
 
 export interface Agent {

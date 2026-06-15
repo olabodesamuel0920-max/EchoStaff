@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EchoStaff AI Chat Widget - Production QA Test Page</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #030303;
+      color: #f3f3f3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+      box-sizing: border-box;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 600px;
+      background: #09090b;
+      border: 1px solid #18181b;
+      border-radius: 16px;
+      padding: 2.5rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+      background: linear-gradient(to right, #a855f7, #6366f1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-top: 0;
+    }
+    p {
+      color: #a1a1aa;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+    .code-block {
+      background: #000;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: monospace;
+      font-size: 0.8rem;
+      text-align: left;
+      overflow-x: auto;
+      margin-bottom: 1.5rem;
+      color: #c084fc;
+    }
+    .instructions {
+      text-align: left;
+      background: rgba(39, 39, 42, 0.2);
+      border-left: 4px solid #a855f7;
+      padding: 1.2rem;
+      border-radius: 4px;
+      margin-top: 1.5rem;
+      font-size: 0.85rem;
+      color: #d4d4d8;
+    }
+    .instructions ul {
+      margin: 0.5rem 0 0 1.2rem;
+      padding: 0;
+    }
+    .instructions li {
+      margin-bottom: 0.6rem;
+      line-height: 1.4;
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(168, 85, 247, 0.1);
+      border: 1px solid rgba(168, 85, 247, 0.2);
+      color: #c084fc;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-top: 1rem;
+      transition: all 0.2s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>EchoStaff Widget QA Testing</h1>
+    <p>
+      This isolated local page serves to verify the behavior of the embeddable EchoStaff AI chat widget.
+    </p>
+
+    <div class="instructions">
+      <strong>How to test this page:</strong>
+      <ul>
+        <li>
+          <strong>Option A (Dynamic URL parameter):</strong> Append the widget public key to the URL as a query parameter.
+          For example, load the page on whichever dev port Next.js uses:
+          <code style="color: #c084fc; font-family: monospace; display: block; margin-top: 0.3rem; background: #000; padding: 0.4rem; border-radius: 4px; border: 1px solid #18181b;">http://localhost:3000/test_widget.html?key=YOUR_PUBLIC_KEY</code>
+        </li>
+        <li>
+          <strong>Option B (Manual Edit):</strong> Open <code style="color: #a855f7; font-family: monospace;">public/test_widget.html</code> in your editor, locate the script tag placeholder, and paste your public key in <code style="color: #a855f7; font-family: monospace;">data-echostaff-widget</code>.
+        </li>
+      </ul>
+      <span class="badge" id="status-badge">Detecting widget key...</span>
+    </div>
+  </div>
+
+  <!-- Dynamic Widget Script Resolver -->
+  <script>
+    // Parse the query parameter key from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlKey = urlParams.get('key');
+    
+    // Fallback placeholder
+    const defaultPlaceholder = "PASTE_PUBLIC_KEY_HERE";
+    
+    // Choose active key
+    const activeKey = urlKey || defaultPlaceholder;
+    
+    const badge = document.getElementById("status-badge");
+    
+    if (activeKey && activeKey !== defaultPlaceholder) {
+      badge.textContent = "Widget Active: " + activeKey;
+      badge.style.borderColor = "rgba(16, 185, 129, 0.3)";
+      badge.style.backgroundColor = "rgba(16, 185, 129, 0.1)";
+      badge.style.color = "#34d399";
+      
+      // Inject script dynamically
+      const script = document.createElement("script");
+      script.src = window.location.origin + "/widget.js";
+      script.setAttribute("data-echostaff-widget", activeKey);
+      script.async = true;
+      document.body.appendChild(script);
+      console.log("EchoStaff: Dynamically loaded widget script with public key: " + activeKey);
+    } else {
+      badge.textContent = "Waiting for configuration public key parameter...";
+      
+      // Show default placeholder script block for reference
+      const container = document.querySelector(".container");
+      const pre = document.createElement("pre");
+      pre.className = "code-block";
+      pre.textContent = '<script src="' + window.location.origin + '/widget.js" data-echostaff-widget="' + defaultPlaceholder + '" async><\/script>';
+      container.insertBefore(pre, container.querySelector(".instructions"));
+    }
+  </script>
+</body>
+</html>

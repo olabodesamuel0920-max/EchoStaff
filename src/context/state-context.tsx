@@ -115,6 +115,7 @@ interface StateContextProps {
   saveCallSimulation: (simulation: CallSimulation, conversation?: Conversation) => void;
   sendCallSimulationMessage: (agentId: string, text: string, conversationHistory: Message[]) => Promise<any>;
   updateWidgetConfig: (config: Omit<WidgetConfig, "id" | "publicKey" | "workspaceId">) => void;
+  updateHandoffRules: (name: string, contact: string, rules: string) => void;
 }
 
 const StateContext = createContext<StateContextProps | undefined>(undefined);
@@ -1343,6 +1344,36 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   };
 
+  const updateHandoffRules = (name: string, contact: string, rules: string) => {
+    setBrandBrains((prev) => {
+      const existing = prev[activeWorkspaceId] || {
+        profile: { name: "", industry: "", overview: "", products: [], pricingNotes: "", policies: "", ownerNotes: "" },
+        faqs: [],
+        toneOfVoice: "Professional and polite.",
+        doRules: [],
+        dontRules: [],
+        exampleReplies: [],
+      };
+      const updatedBrain = {
+        ...existing,
+        handoffName: name,
+        handoffContact: contact,
+        handoffRules: rules,
+      };
+      const updated = {
+        ...prev,
+        [activeWorkspaceId]: updatedBrain,
+      };
+      if (shouldUseSupabase) {
+        syncToDb(
+          () => upsertBrandBrain(activeWorkspaceId, updatedBrain),
+          "Brand Brain handoff rules"
+        );
+      }
+      return updated;
+    });
+  };
+
   const logout = async () => {
     if (isSupabaseConfigured && supabase) {
       await supabase.auth.signOut();
@@ -1445,6 +1476,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addClientWorkspace,
         toggleMockMode,
         updateWidgetConfig,
+        updateHandoffRules,
       }}
     >
       {children}

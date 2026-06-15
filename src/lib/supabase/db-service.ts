@@ -26,22 +26,44 @@ export const mapWorkspace = (db: any): ClientWorkspace => ({
   trainingStatus: 85,
 });
 
-export const mapBrandBrain = (db: any): BrandBrain => ({
-  profile: {
-    name: "",
-    industry: "",
-    overview: db.business_overview || "",
-    products: Array.isArray(db.products_services) ? db.products_services : [],
-    pricingNotes: db.pricing_notes || "",
-    policies: Array.isArray(db.policies) ? db.policies.join("\n") : (db.policies || ""),
-    ownerNotes: db.owner_notes || "",
-  },
-  faqs: Array.isArray(db.faqs) ? db.faqs : [],
-  toneOfVoice: db.tone_of_voice || "Professional and polite.",
-  doRules: Array.isArray(db.do_rules) ? db.do_rules : [],
-  dontRules: Array.isArray(db.dont_rules) ? db.dont_rules : [],
-  exampleReplies: [],
-});
+export const mapBrandBrain = (db: any): BrandBrain => {
+  let ownerNotes = db.owner_notes || "";
+  let handoffName = "";
+  let handoffContact = "";
+  let handoffRules = "";
+
+  if (db.owner_notes && db.owner_notes.trim().startsWith("{")) {
+    try {
+      const parsed = JSON.parse(db.owner_notes);
+      ownerNotes = parsed.ownerNotes ?? "";
+      handoffName = parsed.handoffName ?? "";
+      handoffContact = parsed.handoffContact ?? "";
+      handoffRules = parsed.handoffRules ?? "";
+    } catch (e) {
+      console.warn("Failed to parse owner_notes JSON:", e);
+    }
+  }
+
+  return {
+    profile: {
+      name: "",
+      industry: "",
+      overview: db.business_overview || "",
+      products: Array.isArray(db.products_services) ? db.products_services : [],
+      pricingNotes: db.pricing_notes || "",
+      policies: Array.isArray(db.policies) ? db.policies.join("\n") : (db.policies || ""),
+      ownerNotes,
+    },
+    faqs: Array.isArray(db.faqs) ? db.faqs : [],
+    toneOfVoice: db.tone_of_voice || "Professional and polite.",
+    doRules: Array.isArray(db.do_rules) ? db.do_rules : [],
+    dontRules: Array.isArray(db.dont_rules) ? db.dont_rules : [],
+    exampleReplies: [],
+    handoffName,
+    handoffContact,
+    handoffRules,
+  };
+};
 
 export const mapAgent = (db: any): Agent => ({
   id: db.id,
@@ -367,6 +389,16 @@ export async function updateWorkspace(id: string, name: string, industry: string
 
 export async function upsertBrandBrain(workspaceId: string, brain: BrandBrain) {
   if (!supabase) return null;
+
+  // TODO: Handoff rules, contact details, and names should become proper database columns or a dedicated handoff_rules table later.
+  const ownerNotesObj = {
+    ownerNotes: brain.profile.ownerNotes || "",
+    handoffName: brain.handoffName || "",
+    handoffContact: brain.handoffContact || "",
+    handoffRules: brain.handoffRules || "",
+  };
+  const serializedOwnerNotes = JSON.stringify(ownerNotesObj);
+
   const dbBrain = {
     workspace_id: workspaceId,
     tone_of_voice: brain.toneOfVoice,
@@ -376,7 +408,7 @@ export async function upsertBrandBrain(workspaceId: string, brain: BrandBrain) {
     do_rules: brain.doRules,
     dont_rules: brain.dontRules,
     policies: [brain.profile.policies],
-    owner_notes: brain.profile.ownerNotes,
+    owner_notes: serializedOwnerNotes,
     updated_at: new Date().toISOString(),
   };
 

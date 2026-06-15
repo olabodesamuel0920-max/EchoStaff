@@ -11,7 +11,8 @@ export default function AnalyticsPage() {
     conversations, 
     trainingItems,
     brandBrains,
-    widgetConfigs
+    widgetConfigs,
+    agents
   } = useAppState();
 
   const workspaceConvs = conversations[activeWorkspaceId] || [];
@@ -29,6 +30,25 @@ export default function AnalyticsPage() {
   const widgetHotLeads = widgetConvs.filter(c => c.leadStatus === "Hot" || c.leadStatus === "Warm");
   const widgetFollowUpRate = widgetConvs.length > 0 ? Math.round((widgetConvs.filter(c => c.needsFollowUp).length / widgetConvs.length) * 100) : 0;
   const activeConfig = brandBrains[activeWorkspaceId] ? widgetConfigs[activeWorkspaceId] : null;
+
+  // Compute Beta Readiness Score
+  const checks = {
+    overviewExists: !!brandBrains[activeWorkspaceId]?.profile?.overview?.trim(),
+    faqsCountOk: (brandBrains[activeWorkspaceId]?.faqs?.length || 0) >= 5,
+    productsCountOk: (brandBrains[activeWorkspaceId]?.profile?.products?.length || 0) >= 3,
+    doRulesCountOk: (brandBrains[activeWorkspaceId]?.doRules?.length || 0) >= 3,
+    dontRulesCountOk: (brandBrains[activeWorkspaceId]?.dontRules?.length || 0) >= 3,
+    pricingNotesOk: !!brandBrains[activeWorkspaceId]?.profile?.pricingNotes?.trim(),
+    policiesOk: !!brandBrains[activeWorkspaceId]?.profile?.policies?.trim(),
+    handoffConfigured: !!brandBrains[activeWorkspaceId]?.handoffName?.trim() && !!brandBrains[activeWorkspaceId]?.handoffRules?.trim(),
+    agentActive: agents.some((a) => a.linkedBrainId === activeWorkspaceId && a.status === "Active"),
+    widgetEnabled: !!widgetConfigs[activeWorkspaceId]?.enabled,
+    domainConfigured: (widgetConfigs[activeWorkspaceId]?.allowedDomains?.length || 0) > 0,
+    widgetTestPassed: workspaceConvs.some((c) => c.channel === "Website Widget"),
+  };
+
+  const metChecks = Object.entries(checks).filter(([_, met]) => met);
+  const scorePercent = Math.round((metChecks.length / 12) * 100);
 
   // Dynamically extract intents and objections from real conversation history
   const realIntents: { q: string; count: number; trend: string }[] = [];
@@ -214,6 +234,40 @@ export default function AnalyticsPage() {
           <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Outstanding Audit Flags</span>
           <span className="text-2xl font-extrabold text-white block mt-2">{workspaceTraining.length} gaps</span>
           <span className="text-[10px] text-zinc-500 mt-1 block">Requires manual feedback</span>
+        </div>
+      </div>
+
+      {/* Beta Launch Telemetry row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="glass-panel border border-zinc-900 rounded-xl p-5 shadow-lg flex flex-col justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Beta Readiness Score</span>
+            <span className="text-2xl font-extrabold text-purple-400 block mt-2">{scorePercent}%</span>
+          </div>
+          <div className="mt-3">
+            <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden">
+              <div className="h-full bg-purple-600 rounded-full" style={{ width: `${scorePercent}%` }} />
+            </div>
+            <span className="text-[9px] text-zinc-550 block mt-1">Readiness Score Trend: 📈 Baseline Established</span>
+          </div>
+        </div>
+
+        <div className="glass-panel border border-zinc-900 rounded-xl p-5 shadow-lg">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Widget Conversations</span>
+          <span className="text-2xl font-extrabold text-white block mt-2">{widgetVolume} chats</span>
+          <span className="text-[10px] text-zinc-500 mt-1 block">Embedded channel traffic</span>
+        </div>
+
+        <div className="glass-panel border border-zinc-900 rounded-xl p-5 shadow-lg">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Widget Hot Leads</span>
+          <span className="text-2xl font-extrabold text-amber-400 block mt-2">{widgetHotLeads.length} leads</span>
+          <span className="text-[10px] text-zinc-500 mt-1 block">High intent customers</span>
+        </div>
+
+        <div className="glass-panel border border-zinc-900 rounded-xl p-5 shadow-lg">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Widget Follow-up Rate</span>
+          <span className="text-2xl font-extrabold text-white block mt-2">{widgetFollowUpRate}%</span>
+          <span className="text-[10px] text-zinc-500 mt-1 block">Requiring owner attention</span>
         </div>
       </div>
 

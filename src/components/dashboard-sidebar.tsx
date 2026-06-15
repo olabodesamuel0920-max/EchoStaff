@@ -18,7 +18,9 @@ import {
   Menu,
   X,
   Phone,
-  Globe
+  Globe,
+  Activity,
+  Rocket
 } from "lucide-react";
 
 interface SidebarProps {
@@ -52,6 +54,8 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) =>
     },
     { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
     { name: "Website Widget", href: "/dashboard/widget", icon: Globe },
+    { name: "System Diagnostics", href: "/dashboard/system-check", icon: Activity },
+    { name: "Beta Launch", href: "/dashboard/beta", icon: Rocket },
     { name: "Agency Mode", href: "/dashboard/agency", icon: Building2 },
   ];
 
