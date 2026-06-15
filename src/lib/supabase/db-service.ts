@@ -96,6 +96,7 @@ export const mapMessage = (db: any): Message => ({
   sender: db.role as "user" | "agent" | "system",
   text: db.content || "",
   timestamp: new Date(db.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  metadata: db.metadata || undefined,
 });
 
 export const mapTrainingItem = (db: any): TrainingItem => ({

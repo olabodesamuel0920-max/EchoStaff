@@ -45,6 +45,7 @@ export interface Message {
   sender: "user" | "agent" | "system";
   text: string;
   timestamp: string;
+  metadata?: any;
 }
 
 export interface Conversation {

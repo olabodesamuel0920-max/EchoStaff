@@ -116,6 +116,7 @@ interface StateContextProps {
   sendCallSimulationMessage: (agentId: string, text: string, conversationHistory: Message[]) => Promise<any>;
   updateWidgetConfig: (config: Omit<WidgetConfig, "id" | "publicKey" | "workspaceId">) => void;
   updateHandoffRules: (name: string, contact: string, rules: string) => void;
+  updateWorkspaceDetails: (name: string, industry: string) => void;
 }
 
 const StateContext = createContext<StateContextProps | undefined>(undefined);
@@ -1374,6 +1375,20 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   };
 
+  const updateWorkspaceDetails = (name: string, industry: string) => {
+    setWorkspaces((prev) =>
+      prev.map((w) =>
+        w.id === activeWorkspaceId ? { ...w, clientName: name, industry } : w
+      )
+    );
+    if (shouldUseSupabase) {
+      syncToDb(
+        () => updateWorkspaceDb(activeWorkspaceId, name, industry),
+        "Workspace Details Update"
+      );
+    }
+  };
+
   const logout = async () => {
     if (isSupabaseConfigured && supabase) {
       await supabase.auth.signOut();
@@ -1477,6 +1492,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toggleMockMode,
         updateWidgetConfig,
         updateHandoffRules,
+        updateWorkspaceDetails,
       }}
     >
       {children}

@@ -207,6 +207,12 @@ export async function POST(req: NextRequest) {
           conversation_id: sessionId,
           role: "agent",
           content: result.reply,
+          metadata: {
+            confidenceScore: result.confidenceScore,
+            detectedIntent: result.detectedIntent,
+            suggestedLeadStatus: result.suggestedLeadStatus,
+            suggestedFollowUp: result.suggestedFollowUp,
+          }
         });
       } catch (dbErr) {
         console.error("Widget API: Failed to sync conversation to Supabase:", dbErr);
