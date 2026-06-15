@@ -268,5 +268,41 @@ We have successfully implemented and verified **Phase 2B: Database-First State I
   - Displays last sync errors.
   - Contains a **Force Refetch** action button that triggers `refetchData()`.
 
+---
+
+## 11. Phase 2C: Embeddable Website Chat Widget Upgrades
+
+We have successfully implemented and verified **Phase 2C: Embeddable Website Chat Widget**. This phase establishes a real customer-facing channel, allowing business owners to configure, style, preview, and embed an AI assistant widget directly onto external websites.
+
+### A. Database Widget Configuration Scheme
+- Created the migration file `supabase/migrations/002_widget_configs.sql` which provisions the `widget_configs` table.
+- Configured Row Level Security (RLS) on the table: workspace owners can perform read/write actions on their configs, while public visitors are blocked from querying the table directly.
+
+### B. Dynamic Embed Script (`widget.js`)
+- Placed a static script at `public/widget.js`.
+- Host websites embed it using a single line:
+  `<script src="https://YOUR_DOMAIN/widget.js" data-echostaff-widget="PUBLIC_KEY" async></script>`
+- Resolves the hosting domain dynamically from its own script source URL.
+- Injects a styled, sandboxed `iframe` pointing to `/embed/widget/[publicKey]` positioned floating at the bottom-right corner.
+- Listens for size adjustment postMessages to safely coordinate collapsed bubble (95px x 95px) and open panel (400px x 620px / full-screen on mobile) transitions.
+
+### C. Public Iframe Chat Route (`/embed/widget/[publicKey]`)
+- Renders the widget UI using Server Component configuration loading:
+  - Preview Mode (`publicKey === "preview"`): reads configurations directly from the search queries to support instant preview rendering in the dashboard.
+  - Database Mode: safely fetches widget settings from Supabase server-side via `supabaseAdmin` client, protecting private workspace data, prompts, or API keys from being exposed in client bundles.
+- Chat interface contains custom branding, accent colors, auto-scrolling log, typing indicators, and session count limits (maximum of 15 interactions per session).
+
+### D. Secure Chat Router API (`/api/widget/chat`)
+- Validates the widget public key and active status server-side.
+- Normalizes and matches referrer/origin domains against the allowed domains config.
+- Enforces strict character limits (1000 characters) and session limits (max 30 total messages per sessionId).
+- Loads Brand Brain instructions, business profiles, and assigned agents on the server to prevent data leakage.
+- Directs visitor message exchanges into Supabase under the `"Website Widget"` channel, mapping lead status and follow-up flags.
+
+### E. Dashboard & Analytics Integration
+- Website widget chat logs and conversation summaries appear in `/dashboard/conversations`.
+- Integrated widget metrics (total volume, hot leads share, follow-up rates, and domain statuses) directly into the `/dashboard/analytics` dashboard layout.
+
+
 
 

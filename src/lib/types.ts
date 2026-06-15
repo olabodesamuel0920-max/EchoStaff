@@ -119,3 +119,16 @@ export interface CallSimulation {
   date: string;
   status: "ringing" | "connected" | "ended" | "analyzing";
 }
+
+export interface WidgetConfig {
+  id: string;
+  workspaceId: string;
+  agentId: string;
+  publicKey: string;
+  enabled: boolean;
+  greeting: string;
+  accentColor: string;
+  displayName: string;
+  allowedDomains: string[];
+}
+

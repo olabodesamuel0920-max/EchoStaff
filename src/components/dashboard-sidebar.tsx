@@ -17,7 +17,8 @@ import {
   Building,
   Menu,
   X,
-  Phone
+  Phone,
+  Globe
 } from "lucide-react";
 
 interface SidebarProps {
@@ -50,6 +51,7 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) =>
       badge: pendingTrainingCount > 0 ? pendingTrainingCount : undefined
     },
     { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+    { name: "Website Widget", href: "/dashboard/widget", icon: Globe },
     { name: "Agency Mode", href: "/dashboard/agency", icon: Building2 },
   ];
 

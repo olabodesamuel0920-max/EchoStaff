@@ -7,7 +7,8 @@ import {
   Message, 
   TrainingItem, 
   CallScenario, 
-  CallSimulation 
+  CallSimulation,
+  WidgetConfig
 } from "../types";
 
 // ==========================================
@@ -106,6 +107,18 @@ export const mapCallSimulation = (db: any): CallSimulation => ({
   status: (db.status || "ended") as "ringing" | "connected" | "ended" | "analyzing",
 });
 
+export const mapWidgetConfig = (db: any): WidgetConfig => ({
+  id: db.id,
+  workspaceId: db.workspace_id,
+  agentId: db.agent_id || "",
+  publicKey: db.public_key,
+  enabled: db.enabled ?? true,
+  greeting: db.greeting || "Hello! How can we help you today?",
+  accentColor: db.accent_color || "#10b981",
+  displayName: db.display_name || "AI Assistant",
+  allowedDomains: Array.isArray(db.allowed_domains) ? db.allowed_domains : [],
+});
+
 // ==========================================
 // Workspace Bundle Type (consolidated load)
 // ==========================================
@@ -118,6 +131,7 @@ export interface WorkspaceBundle {
   trainingItems: Record<string, TrainingItem[]>;
   callScenarios: CallScenario[];
   callSimulations: Record<string, CallSimulation[]>;
+  widgetConfigs: Record<string, WidgetConfig>;
 }
 
 // ==========================================
@@ -221,7 +235,7 @@ export async function fetchCallSimulations() {
  * Throws on any critical fetch failure.
  */
 export async function loadWorkspaceBundle(): Promise<WorkspaceBundle> {
-  const [ws, brains, ags, dbConvs, dbMsgs, items, scenarios, sims] = await Promise.all([
+  const [ws, brains, ags, dbConvs, dbMsgs, items, scenarios, sims, widgetConfs] = await Promise.all([
     fetchWorkspaces(),
     fetchBrandBrains(),
     fetchAgents(),
@@ -230,6 +244,7 @@ export async function loadWorkspaceBundle(): Promise<WorkspaceBundle> {
     fetchTrainingItems(),
     fetchCallScenarios(),
     fetchCallSimulations(),
+    fetchWidgetConfigs(),
   ]);
 
   // Group messages by conversation ID
@@ -277,6 +292,7 @@ export async function loadWorkspaceBundle(): Promise<WorkspaceBundle> {
     trainingItems: itemsMap,
     callScenarios: scenarios,
     callSimulations: simsMap,
+    widgetConfigs: widgetConfs,
   };
 }
 
@@ -592,4 +608,48 @@ export async function insertCallSimulation(workspaceId: string, sim: CallSimulat
     throw new Error(`Failed to insert call simulation: ${error.message}`);
   }
   return mapCallSimulation(data);
+}
+
+// ==========================================
+// Widget Configurations Reads/Writes
+// ==========================================
+
+export async function fetchWidgetConfigs(): Promise<Record<string, WidgetConfig>> {
+  if (!supabase) return {};
+  const { data, error } = await supabase.from("widget_configs").select("*");
+  if (error) {
+    console.error("Error fetching widget configs:", error);
+    throw new Error(`Failed to fetch widget configs: ${error.message}`);
+  }
+  const configs: Record<string, WidgetConfig> = {};
+  data.forEach((dbConfig: any) => {
+    configs[dbConfig.workspace_id] = mapWidgetConfig(dbConfig);
+  });
+  return configs;
+}
+
+export async function upsertWidgetConfig(config: WidgetConfig) {
+  if (!supabase) return null;
+  const dbConfig = {
+    id: config.id.startsWith("widget-") ? undefined : config.id,
+    workspace_id: config.workspaceId,
+    agent_id: config.agentId || null,
+    public_key: config.publicKey,
+    enabled: config.enabled,
+    greeting: config.greeting,
+    accent_color: config.accentColor,
+    display_name: config.displayName,
+    allowed_domains: config.allowedDomains,
+    updated_at: new Date().toISOString(),
+  };
+  const { data, error } = await supabase
+    .from("widget_configs")
+    .upsert(dbConfig, { onConflict: "workspace_id" })
+    .select()
+    .single();
+  if (error) {
+    console.error("Error upserting widget config:", error);
+    throw new Error(`Failed to upsert widget config: ${error.message}`);
+  }
+  return mapWidgetConfig(data);
 }

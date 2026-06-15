@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useAppState } from "@/context/state-context";
-import { BarChart3, TrendingUp, HelpCircle, FileText, AlertTriangle, Users } from "lucide-react";
+import { BarChart3, TrendingUp, HelpCircle, FileText, AlertTriangle, Users, Globe } from "lucide-react";
 
 export default function AnalyticsPage() {
   const { 
@@ -10,7 +10,8 @@ export default function AnalyticsPage() {
     activeWorkspace, 
     conversations, 
     trainingItems,
-    brandBrains
+    brandBrains,
+    widgetConfigs
   } = useAppState();
 
   const workspaceConvs = conversations[activeWorkspaceId] || [];
@@ -21,6 +22,13 @@ export default function AnalyticsPage() {
   const totalConvsCount = activeWorkspace?.volume || 0;
   const hotLeads = workspaceConvs.filter(c => c.leadStatus === "Hot" || c.leadStatus === "Warm");
   const conversionRate = totalConvsCount > 0 ? Math.round((hotLeads.length / totalConvsCount) * 100) : 18;
+
+  // Widget Metrics
+  const widgetConvs = workspaceConvs.filter(c => c.channel === "Website Widget");
+  const widgetVolume = widgetConvs.length;
+  const widgetHotLeads = widgetConvs.filter(c => c.leadStatus === "Hot" || c.leadStatus === "Warm");
+  const widgetFollowUpRate = widgetConvs.length > 0 ? Math.round((widgetConvs.filter(c => c.needsFollowUp).length / widgetConvs.length) * 100) : 0;
+  const activeConfig = brandBrains[activeWorkspaceId] ? widgetConfigs[activeWorkspaceId] : null;
 
   // Dynamically extract intents and objections from real conversation history
   const realIntents: { q: string; count: number; trend: string }[] = [];
@@ -206,6 +214,89 @@ export default function AnalyticsPage() {
           <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Outstanding Audit Flags</span>
           <span className="text-2xl font-extrabold text-white block mt-2">{workspaceTraining.length} gaps</span>
           <span className="text-[10px] text-zinc-500 mt-1 block">Requires manual feedback</span>
+        </div>
+      </div>
+
+      {/* Channel Distribution & Widget KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        {/* Channel Volume Share */}
+        <div className="md:col-span-5 glass-panel border border-zinc-900 rounded-xl p-6 shadow-lg space-y-4">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+            <Globe className="h-4.5 w-4.5 text-purple-400" />
+            <span>Channel Volume Share</span>
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between text-xs text-zinc-400 mb-1.5">
+                <span>Website Widget</span>
+                <span className="font-semibold text-zinc-200">
+                  {widgetVolume} / {workspaceConvs.length} ({workspaceConvs.length > 0 ? Math.round((widgetVolume / workspaceConvs.length) * 100) : 0}%)
+                </span>
+              </div>
+              <div className="h-2 bg-zinc-900 rounded-full overflow-hidden">
+                <div 
+                  style={{ width: `${workspaceConvs.length > 0 ? (widgetVolume / workspaceConvs.length) * 100 : 0}%` }}
+                  className="h-full bg-gradient-to-r from-purple-500 to-indigo-500" 
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs text-zinc-400 mb-1.5">
+                <span>Playground / Web Chat</span>
+                <span className="font-semibold text-zinc-200">
+                  {workspaceConvs.filter(c => c.channel === "Web chat" || c.channel === "Playground").length} / {workspaceConvs.length}
+                </span>
+              </div>
+              <div className="h-2 bg-zinc-900 rounded-full overflow-hidden">
+                <div 
+                  style={{ width: `${workspaceConvs.length > 0 ? (workspaceConvs.filter(c => c.channel === "Web chat" || c.channel === "Playground").length / workspaceConvs.length) * 100 : 0}%` }}
+                  className="h-full bg-zinc-700" 
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs text-zinc-400 mb-1.5">
+                <span>Call Lab Simulations</span>
+                <span className="font-semibold text-zinc-200">
+                  {workspaceConvs.filter(c => c.channel === "Call Simulation" || c.channel === "Call Lab").length} / {workspaceConvs.length}
+                </span>
+              </div>
+              <div className="h-2 bg-zinc-900 rounded-full overflow-hidden">
+                <div 
+                  style={{ width: `${workspaceConvs.length > 0 ? (workspaceConvs.filter(c => c.channel === "Call Simulation" || c.channel === "Call Lab").length / workspaceConvs.length) * 100 : 0}%` }}
+                  className="h-full bg-zinc-850" 
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Website Widget Metrics */}
+        <div className="md:col-span-7 glass-panel border border-zinc-900 rounded-xl p-6 shadow-lg space-y-4">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+            <Globe className="h-4.5 w-4.5 text-purple-400" />
+            <span>Website Widget Active Metrics</span>
+          </h3>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-zinc-900/20 border border-zinc-900 p-3.5 rounded-lg text-center space-y-1">
+              <span className="text-[10px] text-zinc-500 uppercase font-semibold">Widget Volume</span>
+              <span className="text-xl font-bold text-white block">{widgetVolume} chats</span>
+            </div>
+            <div className="bg-zinc-900/20 border border-zinc-900 p-3.5 rounded-lg text-center space-y-1">
+              <span className="text-[10px] text-zinc-500 uppercase font-semibold">Widget Hot Leads</span>
+              <span className="text-xl font-bold text-amber-400 block">{widgetHotLeads.length} leads</span>
+            </div>
+            <div className="bg-zinc-900/20 border border-zinc-900 p-3.5 rounded-lg text-center space-y-1">
+              <span className="text-[10px] text-zinc-500 uppercase font-semibold">Follow-up Rate</span>
+              <span className="text-xl font-bold text-purple-450 block">{widgetFollowUpRate}%</span>
+            </div>
+          </div>
+          <div className="text-[10px] text-zinc-650 bg-zinc-900/10 p-2.5 rounded border border-zinc-900 flex justify-between">
+            <span>External domains allowed: {activeConfig?.allowedDomains?.length || 0}</span>
+            <span>Widget status: <strong className={activeConfig?.enabled ? "text-emerald-400" : "text-zinc-500"}>{activeConfig?.enabled ? "Active" : "Disabled"}</strong></span>
+          </div>
         </div>
       </div>
 

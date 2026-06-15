@@ -14,7 +14,8 @@ import {
   Message,
   CallScenario,
   CallSimulation,
-  CallScorecard
+  CallScorecard,
+  WidgetConfig
 } from "../lib/types";
 import { 
   initialWorkspaces, 
@@ -45,7 +46,8 @@ import {
   insertCallSimulation,
   mapConversation,
   mapTrainingItem,
-  mapCallSimulation
+  mapCallSimulation,
+  upsertWidgetConfig
 } from "@/lib/supabase/db-service";
 
 export interface AgentInsights {
@@ -72,6 +74,7 @@ interface StateContextProps {
   liveAIEnabled: boolean;
   callScenarios: CallScenario[];
   callSimulations: Record<string, CallSimulation[]>;
+  widgetConfigs: Record<string, WidgetConfig>;
   user: any;
   authLoading: boolean;
   isSupabaseConfigured: boolean;
@@ -111,6 +114,7 @@ interface StateContextProps {
   addCustomScenario: (scenario: Omit<CallScenario, "id">) => void;
   saveCallSimulation: (simulation: CallSimulation, conversation?: Conversation) => void;
   sendCallSimulationMessage: (agentId: string, text: string, conversationHistory: Message[]) => Promise<any>;
+  updateWidgetConfig: (config: Omit<WidgetConfig, "id" | "publicKey" | "workspaceId">) => void;
 }
 
 const StateContext = createContext<StateContextProps | undefined>(undefined);
@@ -133,6 +137,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
   const [callScenarios, setCallScenarios] = useState<CallScenario[]>(initialCallScenarios);
   const [callSimulations, setCallSimulations] = useState<Record<string, CallSimulation[]>>({});
+  const [widgetConfigs, setWidgetConfigs] = useState<Record<string, WidgetConfig>>({});
 
   // Supabase Auth and Loader States
   const [user, setUser] = useState<any>(null);
@@ -284,6 +289,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setTrainingItems(bundle.trainingItems);
     setCallScenarios(bundle.callScenarios);
     setCallSimulations(bundle.callSimulations);
+    setWidgetConfigs(bundle.widgetConfigs || {});
 
     // Restore user-scoped active workspace with ownership verification
     if (bundle.workspaces.length > 0) {
@@ -351,6 +357,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const storedInsights = localStorage.getItem("echostaff_playground_insights");
         const storedScenarios = localStorage.getItem("echostaff_call_scenarios");
         const storedSimulations = localStorage.getItem("echostaff_call_simulations");
+        const storedWidgetConfigs = localStorage.getItem("echostaff_widget_configs");
 
         if (storedActiveId) setActiveWorkspaceIdRaw(storedActiveId);
         if (storedWorkspaces) setWorkspaces(JSON.parse(storedWorkspaces));
@@ -363,6 +370,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (storedInsights) setPlaygroundInsights(JSON.parse(storedInsights));
         if (storedScenarios) setCallScenarios(JSON.parse(storedScenarios));
         if (storedSimulations) setCallSimulations(JSON.parse(storedSimulations));
+        if (storedWidgetConfigs) setWidgetConfigs(JSON.parse(storedWidgetConfigs));
       } catch (e) {
         console.error("Failed to load state from localStorage", e);
       } finally {
@@ -398,6 +406,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         localStorage.setItem("echostaff_playground_insights", JSON.stringify(playgroundInsights));
         localStorage.setItem("echostaff_call_scenarios", JSON.stringify(callScenarios));
         localStorage.setItem("echostaff_call_simulations", JSON.stringify(callSimulations));
+        localStorage.setItem("echostaff_widget_configs", JSON.stringify(widgetConfigs));
       } catch (e) {
         console.error("Failed to sync state to localStorage", e);
       }
@@ -414,7 +423,8 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     playgroundInsights,
     isInitialized,
     callScenarios,
-    callSimulations
+    callSimulations,
+    widgetConfigs
   ]);
 
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
@@ -1302,6 +1312,37 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const updateWidgetConfig = (newConfigData: Omit<WidgetConfig, "id" | "publicKey" | "workspaceId">) => {
+    setWidgetConfigs((prev) => {
+      const existing = prev[activeWorkspaceId] || {
+        id: `widget-${activeWorkspaceId}`,
+        workspaceId: activeWorkspaceId,
+        agentId: "",
+        publicKey: "pk_" + Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10),
+        enabled: true,
+        greeting: "Hello! How can we help you today?",
+        accentColor: "#10b981",
+        displayName: "AI Assistant",
+        allowedDomains: [],
+      };
+      const updatedConfig: WidgetConfig = {
+        ...existing,
+        ...newConfigData,
+      };
+      const updated = {
+        ...prev,
+        [activeWorkspaceId]: updatedConfig,
+      };
+      if (shouldUseSupabase) {
+        syncToDb(
+          () => upsertWidgetConfig(updatedConfig),
+          "Widget Configuration"
+        );
+      }
+      return updated;
+    });
+  };
+
   const logout = async () => {
     if (isSupabaseConfigured && supabase) {
       await supabase.auth.signOut();
@@ -1315,6 +1356,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setTrainingItems(initialTrainingItems);
     setCallScenarios(initialCallScenarios);
     setCallSimulations({});
+    setWidgetConfigs({});
     setActiveWorkspaceIdRaw("luna-aesthetics");
     setLastSyncTimestamp(null);
     setDbSyncError(null);
@@ -1365,6 +1407,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         liveAIEnabled,
         callScenarios,
         callSimulations,
+        widgetConfigs,
         user,
         authLoading,
         isSupabaseConfigured,
@@ -1401,6 +1444,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addTrainingItem,
         addClientWorkspace,
         toggleMockMode,
+        updateWidgetConfig,
       }}
     >
       {children}
