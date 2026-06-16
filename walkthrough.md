@@ -188,6 +188,14 @@ All tables enable Row Level Security to protect client data:
 - **Registration & Sign in**: `/login` and `/signup` utilize `@supabase/ssr` `signInWithPassword` and `signUp`.
 - **Auth Callback Handler**: [callback/route.ts](file:///c:/Users/colds/Documents/GitHub/EchoStaff/EchoStaff/src/app/auth/callback/route.ts) handles verification token exchanges for session establishment.
 - **Session Redirect Guard**: The `StateProvider` watches for unauthenticated traffic hitting dashboard sub-routes, displaying a secure loading splash before redirecting to `/login` to avoid UI flickers and hydration loops.
+- **Supabase Authentication URL Setup (Production & Local)**:
+  - **Site URL**: `https://echo-staff.vercel.app`
+  - **Redirect URLs**:
+    - `https://echo-staff.vercel.app/**`
+    - `https://echo-staff.vercel.app/auth/callback`
+    - `https://echo-staff.vercel.app/dashboard`
+    - `http://localhost:3000/**`
+    - `http://localhost:3001/**`
 
 ### E. Coordinated State Fallbacks & Onboarding
 - **Data Access Layer**: Abstracted all queries and writes inside a clean service [db-service.ts](file:///c:/Users/colds/Documents/GitHub/EchoStaff/EchoStaff/src/lib/supabase/db-service.ts).
