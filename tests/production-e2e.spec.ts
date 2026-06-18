@@ -156,8 +156,8 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     await page.waitForTimeout(2500);
     
     // Send customer objection text
-    await page.fill("input[placeholder*='Speak or type']", "Can I get a discount for my party?");
-    await page.click("button:has-text('Send message')");
+    await page.fill("input[placeholder*='Type customer reply']", "Can I get a refund or discount for my party?");
+    await page.click("button:has-text('Send')");
     await page.waitForTimeout(3000);
     
     // End call and confirm scorecard loads
