@@ -180,9 +180,7 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     await page.waitForTimeout(2000);
     await page.fill("textarea[placeholder*='Hello!']", "Welcome to Eka Kitchen QA widget!");
     await page.click("button:has-text('Save Configuration Settings')");
-    await page.waitForTimeout(2000);
-    const widgetBodyText = await page.locator("body").innerText();
-    expect(widgetBodyText.toLowerCase()).toContain("settings saved");
+    await expect(page.locator("text=Settings Saved").first()).toBeVisible();
 
     // 8. Visit all dashboard subpages to verify zero crashes
     const subpages = [
