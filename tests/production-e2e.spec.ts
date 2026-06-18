@@ -194,7 +194,7 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     for (const sub of subpages) {
       await page.goto(`${targetUrl}${sub}`);
       await page.waitForTimeout(1500);
-      await expect(page.locator("header")).toBeVisible();
+      await expect(page.locator("h1").first()).toBeVisible();
     }
   });
 
