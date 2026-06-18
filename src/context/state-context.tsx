@@ -244,6 +244,79 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const loadLocalData = useCallback((userId?: string) => {
+    if (typeof window === "undefined") return;
+    try {
+      const activeIdKey = userId ? `echostaff_active_workspace_id_${userId}` : "echostaff_active_workspace_id";
+      const storedActiveId = localStorage.getItem(activeIdKey) || localStorage.getItem("echostaff_active_workspace_id");
+      
+      const suffix = userId ? `_${userId}` : "";
+      
+      const storedWorkspaces = localStorage.getItem(`echostaff_workspaces${suffix}`) || localStorage.getItem("echostaff_workspaces");
+      const storedBrains = localStorage.getItem(`echostaff_brand_brains${suffix}`) || localStorage.getItem("echostaff_brand_brains");
+      const storedAgents = localStorage.getItem(`echostaff_agents${suffix}`) || localStorage.getItem("echostaff_agents");
+      const storedConversations = localStorage.getItem(`echostaff_conversations${suffix}`) || localStorage.getItem("echostaff_conversations");
+      const storedTraining = localStorage.getItem(`echostaff_training_items${suffix}`) || localStorage.getItem("echostaff_training_items");
+      const storedStats = localStorage.getItem(`echostaff_system_stats${suffix}`) || localStorage.getItem("echostaff_system_stats");
+      const storedPlayground = localStorage.getItem(`echostaff_playground_messages${suffix}`) || localStorage.getItem("echostaff_playground_messages");
+      const storedInsights = localStorage.getItem(`echostaff_playground_insights${suffix}`) || localStorage.getItem("echostaff_playground_insights");
+      const storedScenarios = localStorage.getItem(`echostaff_call_scenarios${suffix}`) || localStorage.getItem("echostaff_call_scenarios");
+      const storedSimulations = localStorage.getItem(`echostaff_call_simulations${suffix}`) || localStorage.getItem("echostaff_call_simulations");
+      const storedWidgetConfigs = localStorage.getItem(`echostaff_widget_configs${suffix}`) || localStorage.getItem("echostaff_widget_configs");
+
+      if (storedActiveId) setActiveWorkspaceIdRaw(storedActiveId);
+      if (storedWorkspaces) setWorkspaces(JSON.parse(storedWorkspaces));
+      if (storedBrains) setBrandBrains(JSON.parse(storedBrains));
+      if (storedAgents) setAgents(JSON.parse(storedAgents));
+      if (storedConversations) setConversations(JSON.parse(storedConversations));
+      if (storedTraining) setTrainingItems(JSON.parse(storedTraining));
+      if (storedStats) setSystemStats(JSON.parse(storedStats));
+      if (storedPlayground) setPlaygroundMessages(JSON.parse(storedPlayground));
+      if (storedInsights) setPlaygroundInsights(JSON.parse(storedInsights));
+      if (storedScenarios) setCallScenarios(JSON.parse(storedScenarios));
+      if (storedSimulations) setCallSimulations(JSON.parse(storedSimulations));
+      if (storedWidgetConfigs) setWidgetConfigs(JSON.parse(storedWidgetConfigs));
+    } catch (e) {
+      console.error("Failed to load state from localStorage", e);
+    }
+  }, []);
+
+  const saveLocalData = useCallback((userId?: string) => {
+    if (typeof window === "undefined") return;
+    try {
+      const activeIdKey = userId ? `echostaff_active_workspace_id_${userId}` : "echostaff_active_workspace_id";
+      localStorage.setItem(activeIdKey, activeWorkspaceId);
+      
+      const suffix = userId ? `_${userId}` : "";
+      localStorage.setItem(`echostaff_workspaces${suffix}`, JSON.stringify(workspaces));
+      localStorage.setItem(`echostaff_brand_brains${suffix}`, JSON.stringify(brandBrains));
+      localStorage.setItem(`echostaff_agents${suffix}`, JSON.stringify(agents));
+      localStorage.setItem(`echostaff_conversations${suffix}`, JSON.stringify(conversations));
+      localStorage.setItem(`echostaff_training_items${suffix}`, JSON.stringify(trainingItems));
+      localStorage.setItem(`echostaff_system_stats${suffix}`, JSON.stringify(systemStats));
+      localStorage.setItem(`echostaff_playground_messages${suffix}`, JSON.stringify(playgroundMessages));
+      localStorage.setItem(`echostaff_playground_insights${suffix}`, JSON.stringify(playgroundInsights));
+      localStorage.setItem(`echostaff_call_scenarios${suffix}`, JSON.stringify(callScenarios));
+      localStorage.setItem(`echostaff_call_simulations${suffix}`, JSON.stringify(callSimulations));
+      localStorage.setItem(`echostaff_widget_configs${suffix}`, JSON.stringify(widgetConfigs));
+    } catch (e) {
+      console.error("Failed to save state to localStorage", e);
+    }
+  }, [
+    activeWorkspaceId,
+    workspaces,
+    brandBrains,
+    agents,
+    conversations,
+    trainingItems,
+    systemStats,
+    playgroundMessages,
+    playgroundInsights,
+    callScenarios,
+    callSimulations,
+    widgetConfigs
+  ]);
+
   // Load database items when authenticated
   const loadSupabaseData = useCallback(async (userId: string) => {
     try {
@@ -274,10 +347,11 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.error("Failed to load Supabase data:", error);
       setDbConnectionError(error.message || "Could not connect to database");
       setIsMockMode(true);
+      loadLocalData(userId);
     } finally {
       setIsInitialized(true);
     }
-  }, []);
+  }, [loadLocalData]);
 
   /**
    * applyBundle(): Applies a loaded WorkspaceBundle into React state,
@@ -346,41 +420,12 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // 1. Initial Load from LocalStorage (Fallback / Mock Mode only)
   useEffect(() => {
+    if (isInitialized) return;
     if (typeof window !== "undefined" && !user) {
-      try {
-        const storedActiveId = localStorage.getItem("echostaff_active_workspace_id");
-        const storedWorkspaces = localStorage.getItem("echostaff_workspaces");
-        const storedBrains = localStorage.getItem("echostaff_brand_brains");
-        const storedAgents = localStorage.getItem("echostaff_agents");
-        const storedConversations = localStorage.getItem("echostaff_conversations");
-        const storedTraining = localStorage.getItem("echostaff_training_items");
-        const storedStats = localStorage.getItem("echostaff_system_stats");
-        const storedPlayground = localStorage.getItem("echostaff_playground_messages");
-        const storedInsights = localStorage.getItem("echostaff_playground_insights");
-        const storedScenarios = localStorage.getItem("echostaff_call_scenarios");
-        const storedSimulations = localStorage.getItem("echostaff_call_simulations");
-        const storedWidgetConfigs = localStorage.getItem("echostaff_widget_configs");
-
-        if (storedActiveId) setActiveWorkspaceIdRaw(storedActiveId);
-        if (storedWorkspaces) setWorkspaces(JSON.parse(storedWorkspaces));
-        if (storedBrains) setBrandBrains(JSON.parse(storedBrains));
-        if (storedAgents) setAgents(JSON.parse(storedAgents));
-        if (storedConversations) setConversations(JSON.parse(storedConversations));
-        if (storedTraining) setTrainingItems(JSON.parse(storedTraining));
-        if (storedStats) setSystemStats(JSON.parse(storedStats));
-        if (storedPlayground) setPlaygroundMessages(JSON.parse(storedPlayground));
-        if (storedInsights) setPlaygroundInsights(JSON.parse(storedInsights));
-        if (storedScenarios) setCallScenarios(JSON.parse(storedScenarios));
-        if (storedSimulations) setCallSimulations(JSON.parse(storedSimulations));
-        if (storedWidgetConfigs) setWidgetConfigs(JSON.parse(storedWidgetConfigs));
-      } catch (e) {
-        console.error("Failed to load state from localStorage", e);
-      } finally {
-        setIsInitialized(true);
-      }
+      loadLocalData();
+      setIsInitialized(true);
     }
-  }, [user]);
-
+  }, [user, loadLocalData, isInitialized]);
 
   useEffect(() => {
     fetch("/api/chat")
@@ -393,24 +438,12 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       .catch((err) => console.warn("Failed to check live AI status:", err));
   }, []);
 
-  // 2. Sync to LocalStorage (only in sandbox mode / when not logged into Supabase)
+  // 2. Sync to LocalStorage (only in sandbox mode / or when database connection fails)
   useEffect(() => {
-    if (isInitialized && typeof window !== "undefined" && !user) {
-      try {
-        localStorage.setItem("echostaff_active_workspace_id", activeWorkspaceId);
-        localStorage.setItem("echostaff_workspaces", JSON.stringify(workspaces));
-        localStorage.setItem("echostaff_brand_brains", JSON.stringify(brandBrains));
-        localStorage.setItem("echostaff_agents", JSON.stringify(agents));
-        localStorage.setItem("echostaff_conversations", JSON.stringify(conversations));
-        localStorage.setItem("echostaff_training_items", JSON.stringify(trainingItems));
-        localStorage.setItem("echostaff_system_stats", JSON.stringify(systemStats));
-        localStorage.setItem("echostaff_playground_messages", JSON.stringify(playgroundMessages));
-        localStorage.setItem("echostaff_playground_insights", JSON.stringify(playgroundInsights));
-        localStorage.setItem("echostaff_call_scenarios", JSON.stringify(callScenarios));
-        localStorage.setItem("echostaff_call_simulations", JSON.stringify(callSimulations));
-        localStorage.setItem("echostaff_widget_configs", JSON.stringify(widgetConfigs));
-      } catch (e) {
-        console.error("Failed to sync state to localStorage", e);
+    if (isInitialized && typeof window !== "undefined") {
+      const shouldSaveLocal = !user || !!dbConnectionError;
+      if (shouldSaveLocal) {
+        saveLocalData(user?.id);
       }
     }
   }, [
@@ -426,7 +459,10 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     isInitialized,
     callScenarios,
     callSimulations,
-    widgetConfigs
+    widgetConfigs,
+    user,
+    dbConnectionError,
+    saveLocalData
   ]);
 
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
@@ -447,8 +483,25 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const updateWorkspaceDetails = (name: string, industry: string) => {
+    setWorkspaces((prev) =>
+      prev.map((w) =>
+        w.id === activeWorkspaceId ? { ...w, clientName: name, industry } : w
+      )
+    );
+    if (shouldUseSupabase) {
+      syncToDb(
+        () => updateWorkspaceDb(activeWorkspaceId, name, industry),
+        "Workspace Details Update"
+      );
+    }
+  };
+
   // Business Profile Updates
   const updateBusinessProfile = (profile: BusinessProfile) => {
+    // Keep workspace clientName and industry in sync with the brand brain profile name and industry
+    updateWorkspaceDetails(profile.name, profile.industry);
+
     setBrandBrains((prev) => {
       const updated = {
         ...prev,
@@ -1375,19 +1428,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   };
 
-  const updateWorkspaceDetails = (name: string, industry: string) => {
-    setWorkspaces((prev) =>
-      prev.map((w) =>
-        w.id === activeWorkspaceId ? { ...w, clientName: name, industry } : w
-      )
-    );
-    if (shouldUseSupabase) {
-      syncToDb(
-        () => updateWorkspaceDb(activeWorkspaceId, name, industry),
-        "Workspace Details Update"
-      );
-    }
-  };
+
 
   const logout = async () => {
     if (isSupabaseConfigured && supabase) {

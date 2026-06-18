@@ -307,6 +307,14 @@ export async function loadWorkspaceBundle(): Promise<WorkspaceBundle> {
     simsMap[wsId].push(mapCallSimulation(sim));
   });
 
+  // Populate brand brain profile name and industry from workspaces
+  ws.forEach((w) => {
+    if (brains[w.id]) {
+      brains[w.id].profile.name = w.clientName;
+      brains[w.id].profile.industry = w.industry;
+    }
+  });
+
   return {
     workspaces: ws,
     brandBrains: brains,
