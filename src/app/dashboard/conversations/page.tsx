@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useAppState } from "@/context/state-context";
-import { MessageSquare, Phone, Send, Star, AlertCircle, CheckCircle, Mic } from "lucide-react";
+import { MessageSquare, Phone, Send, Star, AlertCircle, CheckCircle, Mic, ArrowLeft } from "lucide-react";
 
 const Instagram = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -26,13 +26,33 @@ export default function ConversationsInboxPage() {
 
   const workspaceConvs = conversations[activeWorkspaceId] || [];
   const [selectedConvId, setSelectedConvId] = useState("");
+  const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false);
 
-  // Set default selection
+  // Set default selection and handle workspace change
   useEffect(() => {
-    if (workspaceConvs.length > 0 && !selectedConvId) {
+    setIsMobileDetailOpen(false);
+    if (workspaceConvs.length > 0) {
       setSelectedConvId(workspaceConvs[0].id);
+    } else {
+      setSelectedConvId("");
     }
-  }, [workspaceConvs, selectedConvId]);
+  }, [activeWorkspaceId, workspaceConvs.length]);
+
+  // Manage browser back button for mobile details view
+  useEffect(() => {
+    if (!isMobileDetailOpen) return;
+
+    window.history.pushState({ mobileDetailOpen: true }, "");
+
+    const handlePopState = (e: PopStateEvent) => {
+      setIsMobileDetailOpen(false);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [isMobileDetailOpen]);
 
   const selectedConv = workspaceConvs.find(c => c.id === selectedConvId);
 
@@ -47,36 +67,52 @@ export default function ConversationsInboxPage() {
     }
   };
 
+  const formatDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      return `${months[d.getMonth()]} ${d.getDate()}`;
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
   return (
     <div className="h-[calc(100vh-8.5rem)] flex flex-col md:flex-row gap-6">
       {/* Left: Chat Inbox List */}
-      <div className="w-full md:w-80 glass-panel border border-zinc-900 rounded-xl overflow-hidden shadow-xl flex flex-col">
+      <div className={`w-full md:w-80 glass-panel border border-zinc-900 rounded-xl overflow-hidden shadow-xl flex flex-col ${
+        isMobileDetailOpen ? "hidden md:flex" : "flex"
+      }`}>
         <div className="bg-zinc-950 px-4 py-3 border-b border-zinc-900">
           <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
             Inbox ({workspaceConvs.length} Sessions)
           </span>
         </div>
 
-        <div className="flex-1 overflow-y-auto divide-y divide-zinc-900/60">
+        <div className="flex-1 overflow-y-auto divide-y divide-zinc-900/50">
           {workspaceConvs.length === 0 ? (
-            <div className="p-6 text-center text-xs text-zinc-600 italic">
+            <div className="p-8 text-center text-xs text-zinc-500">
               No conversations logged.
             </div>
           ) : (
             workspaceConvs.map((conv) => (
               <button
                 key={conv.id}
-                onClick={() => setSelectedConvId(conv.id)}
+                onClick={() => {
+                  setSelectedConvId(conv.id);
+                  setIsMobileDetailOpen(true);
+                }}
                 className={`w-full text-left p-4 transition-colors flex flex-col space-y-1.5 cursor-pointer ${
                   conv.id === selectedConvId 
-                    ? "bg-purple-600/10 border-l-2 border-purple-500" 
+                    ? "bg-purple-650/10 border-l-2 border-purple-500" 
                     : "hover:bg-zinc-900/40"
                 }`}
               >
                 <div className="flex justify-between items-center w-full">
                   <span className="text-xs font-bold text-zinc-200 truncate">{conv.customerName}</span>
                   <span className="text-[9px] text-zinc-500">
-                    {new Date(conv.date).toLocaleDateString([], { month: "short", day: "numeric" })}
+                    {formatDate(conv.date)}
                   </span>
                 </div>
                 
@@ -114,19 +150,31 @@ export default function ConversationsInboxPage() {
       </div>
 
       {/* Right: Active Chat Log Viewer */}
-      <div className="flex-1 glass-panel border border-zinc-900 rounded-xl overflow-hidden shadow-xl flex flex-col justify-between">
+      <div className={`flex-1 glass-panel border border-zinc-900 rounded-xl overflow-hidden shadow-xl flex flex-col justify-between ${
+        isMobileDetailOpen ? "flex" : "hidden md:flex"
+      }`}>
         {selectedConv ? (
           <>
             {/* Header Details */}
             <div className="bg-zinc-950 px-6 py-4 border-b border-zinc-900 flex justify-between items-center">
-              <div>
-                <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-                  {selectedConv.customerName}
-                  {getChannelIcon(selectedConv.channel)}
-                </h3>
-                <p className="text-[10px] text-zinc-500 mt-0.5 leading-relaxed">
-                  Summary: {selectedConv.summary}
-                </p>
+              <div className="flex items-center gap-3 overflow-hidden">
+                {/* Mobile Back Button */}
+                <button
+                  onClick={() => setIsMobileDetailOpen(false)}
+                  className="md:hidden rounded-lg p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors shrink-0"
+                  title="Back to list"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <div className="truncate">
+                  <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                    {selectedConv.customerName}
+                    {getChannelIcon(selectedConv.channel)}
+                  </h3>
+                  <p className="text-[10px] text-zinc-500 mt-0.5 leading-relaxed truncate">
+                    Summary: {selectedConv.summary}
+                  </p>
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
@@ -164,7 +212,7 @@ export default function ConversationsInboxPage() {
                   )}
 
                   <div 
-                    className={`rounded-lg px-4 py-2.5 text-xs max-w-[80%] whitespace-pre-wrap leading-relaxed ${
+                    className={`rounded-lg px-4 py-2.5 text-xs max-w-[80%] whitespace-pre-wrap break-words leading-relaxed ${
                       msg.sender === "user" 
                         ? "bg-zinc-900 text-zinc-300 border border-zinc-900" 
                         : "bg-purple-950/15 border border-purple-900/10 text-purple-200"

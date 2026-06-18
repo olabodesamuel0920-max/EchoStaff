@@ -36,6 +36,7 @@ export default function CallLabPage() {
   );
 
   const [selectedScenarioId, setSelectedScenarioId] = useState("");
+  const [activeMobileStep, setActiveMobileStep] = useState<1 | 2 | 3>(1);
   const [callStatus, setCallStatus] = useState<CallLabStatus>("idle");
   const [activeSimulationId, setActiveSimulationId] = useState<string | null>(null);
   
@@ -218,6 +219,7 @@ export default function CallLabPage() {
     setTrainingLinked(false);
     setBrainLinked(false);
     setReadyMarked(false);
+    setActiveMobileStep(2);
   };
 
   // Accept Inbound Call
@@ -358,6 +360,7 @@ export default function CallLabPage() {
       setCompletedScorecard(scorecard);
       setMissingKnowledgeGap(gapDetected);
       setCallStatus("ended");
+      setActiveMobileStep(3);
 
       // Save call simulation inside app context
       if (activeScenario && activeAgent) {
@@ -632,11 +635,45 @@ export default function CallLabPage() {
         </button>
       </div>
 
+      {/* Mobile Step Switcher */}
+      <div className="flex lg:hidden rounded-lg bg-zinc-900/40 p-1 border border-zinc-900 gap-1 mb-4">
+        <button
+          onClick={() => setActiveMobileStep(1)}
+          className={`flex-1 text-center py-2 text-xs font-semibold rounded-md transition-all ${
+            activeMobileStep === 1
+              ? "bg-purple-650 text-white shadow"
+              : "text-zinc-400 hover:text-zinc-200"
+          }`}
+        >
+          1. Select Scenario
+        </button>
+        <button
+          onClick={() => setActiveMobileStep(2)}
+          className={`flex-1 text-center py-2 text-xs font-semibold rounded-md transition-all ${
+            activeMobileStep === 2
+              ? "bg-purple-650 text-white shadow"
+              : "text-zinc-400 hover:text-zinc-200"
+          }`}
+        >
+          2. Simulator
+        </button>
+        <button
+          onClick={() => setActiveMobileStep(3)}
+          className={`flex-1 text-center py-2 text-xs font-semibold rounded-md transition-all ${
+            activeMobileStep === 3
+              ? "bg-purple-650 text-white shadow"
+              : "text-zinc-400 hover:text-zinc-200"
+          }`}
+        >
+          3. Scorecard
+        </button>
+      </div>
+
       {/* Main Panel Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         
         {/* Left Panel: Scenario Builder */}
-        <div className="lg:col-span-3 glass-panel border border-zinc-900 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4">
+        <div className={`lg:col-span-3 glass-panel border border-zinc-900 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4 ${activeMobileStep === 1 ? "flex" : "hidden lg:flex"}`}>
           <div className="space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
               1. Select Scenario
@@ -698,10 +735,17 @@ export default function CallLabPage() {
               </div>
             </div>
           )}
+          
+          <button
+            onClick={() => setActiveMobileStep(2)}
+            className="w-full lg:hidden mt-4 rounded-lg bg-purple-650 hover:bg-purple-600 text-center py-2.5 text-xs font-bold text-white transition-colors cursor-pointer"
+          >
+            Proceed to Simulator
+          </button>
         </div>
 
         {/* Center Panel: Live Call Simulator */}
-        <div className="lg:col-span-6 border border-zinc-900 bg-zinc-950 rounded-xl overflow-hidden shadow-2xl flex flex-col justify-between min-h-[460px] relative">
+        <div className={`lg:col-span-6 border border-zinc-900 bg-zinc-950 rounded-xl overflow-hidden shadow-2xl flex flex-col justify-between min-h-[460px] relative ${activeMobileStep === 2 ? "flex" : "hidden lg:flex"}`}>
           <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-purple-500 via-indigo-500 to-cyan-500" />
           
           {/* Header & Status Indicator */}
@@ -935,7 +979,7 @@ export default function CallLabPage() {
         </div>
 
         {/* Right Panel: Call Scorecard / Insights */}
-        <div className="lg:col-span-3 glass-panel border border-zinc-900 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4">
+        <div className={`lg:col-span-3 glass-panel border border-zinc-900 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4 ${activeMobileStep === 3 ? "flex" : "hidden lg:flex"}`}>
           <div className="space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
               3. Call Scorecard

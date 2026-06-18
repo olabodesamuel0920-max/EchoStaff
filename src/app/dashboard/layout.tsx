@@ -81,7 +81,7 @@ export default function DashboardLayout({
         <DashboardTopbar onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Dynamic Route Content */}
-        <main className="flex-1 overflow-y-auto bg-zinc-950/20 p-6 md:p-8">
+        <main className="flex-1 overflow-y-auto bg-zinc-950/20 p-4 md:p-8">
           {children}
         </main>
       </div>

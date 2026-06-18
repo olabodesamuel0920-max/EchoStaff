@@ -96,9 +96,9 @@ export default function DashboardOverview() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1 */}
-        <div className="glass-panel border border-zinc-900 rounded-xl p-5 shadow-lg relative overflow-hidden">
+        <div className="glass-panel border border-zinc-900 rounded-xl p-4 sm:p-5 shadow-lg relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Active Staff</span>
             <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/10">
@@ -113,7 +113,7 @@ export default function DashboardOverview() {
         </div>
 
         {/* Card 2 */}
-        <div className="glass-panel border border-zinc-900 rounded-xl p-5 shadow-lg relative overflow-hidden">
+        <div className="glass-panel border border-zinc-900 rounded-xl p-4 sm:p-5 shadow-lg relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Conversations</span>
             <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/10">
@@ -131,7 +131,7 @@ export default function DashboardOverview() {
         </div>
 
         {/* Card 3 */}
-        <div className="glass-panel border border-zinc-900 rounded-xl p-5 shadow-lg relative overflow-hidden">
+        <div className="glass-panel border border-zinc-900 rounded-xl p-4 sm:p-5 shadow-lg relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">SLA Client Value</span>
             <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/10">
@@ -146,7 +146,7 @@ export default function DashboardOverview() {
         </div>
 
         {/* Card 4 */}
-        <div className="glass-panel border border-zinc-900 rounded-xl p-5 shadow-lg relative overflow-hidden">
+        <div className="glass-panel border border-zinc-900 rounded-xl p-4 sm:p-5 shadow-lg relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Hot Leads Rate</span>
             <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/10">

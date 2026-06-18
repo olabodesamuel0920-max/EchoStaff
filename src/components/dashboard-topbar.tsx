@@ -175,7 +175,7 @@ export const DashboardTopbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold border shadow-inner cursor-pointer transition-all hover:brightness-110 ${badge.bgClass} ${badge.textClass} ${badge.borderClass}`}
             >
               <span className={`h-1.5 w-1.5 rounded-full ${badge.dotClass} animate-pulse`} />
-              <span>{badge.label}</span>
+              <span className="hidden sm:inline">{badge.label}</span>
               <ChevronDown className={`h-3 w-3 ml-0.5 transition-transform ${isTelemetryOpen ? "rotate-180" : ""}`} />
             </button>
 

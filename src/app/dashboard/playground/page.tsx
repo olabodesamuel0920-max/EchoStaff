@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useAppState } from "@/context/state-context";
-import { Play, Sparkles, Send, Trash2, Key, Sliders, Cpu, Mic, Volume2, AlertCircle } from "lucide-react";
+import { Play, Sparkles, Send, Trash2, Key, Sliders, Cpu, Mic, Volume2, AlertCircle, X } from "lucide-react";
 
 type VoiceModeState = "idle" | "listening" | "processing" | "speaking" | "error";
 
@@ -22,7 +22,7 @@ export default function AgentPlaygroundPage() {
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [showOpenAIConfig, setShowOpenAIConfig] = useState(true);
+  const [showOpenAIConfig, setShowOpenAIConfig] = useState(false);
 
   // OpenAI Settings Previews
   const [temperature, setTemperature] = useState("0.7");
@@ -578,175 +578,193 @@ export default function AgentPlaygroundPage() {
 
       {/* Right: OpenAI Connection & Insights panel */}
       {showOpenAIConfig && (
-        <div className="w-full lg:w-80 glass-panel border border-zinc-900 rounded-xl p-5 shadow-2xl flex flex-col justify-between space-y-6 overflow-y-auto">
-          <div className="space-y-6">
+        <>
+          {/* Backdrop for mobile drawer */}
+          <div 
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+            onClick={() => setShowOpenAIConfig(false)}
+          />
+          <div className="fixed top-0 right-0 bottom-0 z-50 w-80 max-w-[90vw] bg-zinc-950 border-l border-zinc-900 p-5 shadow-2xl flex flex-col justify-between space-y-6 overflow-y-auto lg:static lg:w-80 lg:z-auto lg:border-l-0 lg:border lg:rounded-xl lg:bg-zinc-950/20 glass-panel">
+            {/* Mobile drawer header */}
+            <div className="flex justify-between items-center lg:hidden border-b border-zinc-900 pb-3">
+              <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Playground Settings</span>
+              <button 
+                onClick={() => setShowOpenAIConfig(false)}
+                className="rounded-lg p-1 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
             
-            {/* AI Agent Insights */}
-            <div className="space-y-4 border-b border-zinc-900 pb-5">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-purple-400 animate-pulse" />
-                <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-300">
-                  AI Agent Insights
-                </h3>
-              </div>
-
-              {insights ? (
-                <div className="space-y-3.5 text-xs">
-                  {/* Model Used */}
-                  <div className="flex justify-between items-center bg-zinc-900/20 border border-zinc-900 p-2.5 rounded-lg">
-                    <span className="text-zinc-500 font-semibold">Engine model:</span>
-                    <span className="text-zinc-300 font-bold truncate max-w-[120px]">{insights.modelUsed}</span>
-                  </div>
-
-                  {/* Sandbox Fallback vs Live */}
-                  <div className="flex justify-between items-center bg-zinc-900/20 border border-zinc-900 p-2.5 rounded-lg">
-                    <span className="text-zinc-500 font-semibold">Response type:</span>
-                    <span className={`font-bold flex items-center gap-1 ${
-                      aiEngineStatus === "live" ? "text-emerald-400" :
-                      aiEngineStatus === "fallback" ? "text-amber-500" : "text-amber-400"
-                    }`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${
-                        aiEngineStatus === "live" ? "bg-emerald-400" :
-                        aiEngineStatus === "fallback" ? "bg-amber-500" : "bg-amber-400"
-                      } animate-pulse-ring`} />
-                      {aiEngineStatus === "live" ? "Live AI" :
-                       aiEngineStatus === "fallback" ? "Fallback Mock" : "Sandbox Mock"}
-                    </span>
-                  </div>
-
-                  {/* Detected Intent */}
-                  <div className="flex justify-between items-center bg-zinc-900/20 border border-zinc-900 p-2.5 rounded-lg">
-                    <span className="text-zinc-500 font-semibold">Detected intent:</span>
-                    <span className="text-zinc-300 font-bold uppercase tracking-wider text-[9px] bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full truncate max-w-[120px]">
-                      {insights.detectedIntent}
-                    </span>
-                  </div>
-
-                  {/* Lead Status */}
-                  <div className="flex justify-between items-center bg-zinc-900/20 border border-zinc-900 p-2.5 rounded-lg">
-                    <span className="text-zinc-500 font-semibold">Lead status:</span>
-                    <span className={`font-bold uppercase tracking-wider text-[9px] border px-2 py-0.5 rounded-full ${
-                      insights.suggestedLeadStatus === "Hot"
-                        ? "bg-amber-500/10 border-amber-500/20 text-amber-400 font-extrabold"
-                        : insights.suggestedLeadStatus === "Warm"
-                        ? "bg-purple-500/10 border-purple-500/20 text-purple-400"
-                        : insights.suggestedLeadStatus === "Converted"
-                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                        : "bg-zinc-800 border-zinc-850 text-zinc-400"
-                    }`}>
-                      {insights.suggestedLeadStatus}
-                    </span>
-                  </div>
-
-                  {/* Suggested Follow Up */}
-                  <div className="flex justify-between items-center bg-zinc-900/20 border border-zinc-900 p-2.5 rounded-lg">
-                    <span className="text-zinc-500 font-semibold">Follow-up state:</span>
-                    <span className={`font-bold ${insights.suggestedFollowUp ? "text-amber-400 animate-pulse" : "text-emerald-400"}`}>
-                      {insights.suggestedFollowUp ? "⚠️ Action Required" : "✓ Autopilot"}
-                    </span>
-                  </div>
-
-                  {/* Confidence Score */}
-                  <div className="space-y-1 bg-zinc-900/20 border border-zinc-900 p-2.5 rounded-lg">
-                    <div className="flex justify-between text-[10px] text-zinc-500 font-semibold">
-                      <span>Intent Confidence</span>
-                      <span>{Math.round(insights.confidenceScore * 100)}%</span>
-                    </div>
-                    <div className="h-1 w-full bg-zinc-950 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-purple-600 rounded-full transition-all duration-300"
-                        style={{ width: `${insights.confidenceScore * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 text-center border border-dashed border-zinc-900 rounded-lg text-[10px] text-zinc-500 italic">
-                  No message history logged yet. Send a message or use voice mode to audit AI diagnostics.
-                </div>
-              )}
-            </div>
-
-            {/* Production Settings Form */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Cpu className="h-4 w-4 text-purple-400" />
-                <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-300">
-                  Production Settings
-                </h3>
-              </div>
+            <div className="space-y-6 flex-1">
               
-              <p className="text-[10px] text-zinc-500 leading-relaxed">
-                Configure prompt parameters and verify server keys for your workspace.
-              </p>
+              {/* AI Agent Insights */}
+              <div className="space-y-4 border-b border-zinc-900 pb-5">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-purple-400 animate-pulse" />
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-300">
+                    AI Agent Insights
+                  </h3>
+                </div>
 
-              <div className="space-y-4">
-                {/* Secure API Key Status Indicator */}
-                <div className="bg-zinc-900/30 border border-zinc-900 p-3 rounded-lg space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300">
-                    <Key className="h-3.5 w-3.5 text-purple-400" />
-                    <span>Server API Key</span>
+                {insights ? (
+                  <div className="space-y-3.5 text-xs">
+                    {/* Model Used */}
+                    <div className="flex justify-between items-center bg-zinc-900/20 border border-zinc-900 p-2.5 rounded-lg">
+                      <span className="text-zinc-500 font-semibold">Engine model:</span>
+                      <span className="text-zinc-300 font-bold truncate max-w-[120px]">{insights.modelUsed}</span>
+                    </div>
+
+                    {/* Sandbox Fallback vs Live */}
+                    <div className="flex justify-between items-center bg-zinc-900/20 border border-zinc-900 p-2.5 rounded-lg">
+                      <span className="text-zinc-500 font-semibold">Response type:</span>
+                      <span className={`font-bold flex items-center gap-1 ${
+                        aiEngineStatus === "live" ? "text-emerald-400" :
+                        aiEngineStatus === "fallback" ? "text-amber-500" : "text-amber-400"
+                      }`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${
+                          aiEngineStatus === "live" ? "bg-emerald-400" :
+                          aiEngineStatus === "fallback" ? "bg-amber-500" : "bg-amber-400"
+                        } animate-pulse-ring`} />
+                        {aiEngineStatus === "live" ? "Live AI" :
+                         aiEngineStatus === "fallback" ? "Fallback Mock" : "Sandbox Mock"}
+                      </span>
+                    </div>
+
+                    {/* Detected Intent */}
+                    <div className="flex justify-between items-center bg-zinc-900/20 border border-zinc-900 p-2.5 rounded-lg">
+                      <span className="text-zinc-500 font-semibold">Detected intent:</span>
+                      <span className="text-zinc-300 font-bold uppercase tracking-wider text-[9px] bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full truncate max-w-[120px]">
+                        {insights.detectedIntent}
+                      </span>
+                    </div>
+
+                    {/* Lead Status */}
+                    <div className="flex justify-between items-center bg-zinc-900/20 border border-zinc-900 p-2.5 rounded-lg">
+                      <span className="text-zinc-550 font-semibold">Lead status:</span>
+                      <span className={`font-bold uppercase tracking-wider text-[9px] border px-2 py-0.5 rounded-full ${
+                        insights.suggestedLeadStatus === "Hot"
+                          ? "bg-amber-500/10 border-amber-500/20 text-amber-400 font-extrabold"
+                          : insights.suggestedLeadStatus === "Warm"
+                          ? "bg-purple-500/10 border-purple-500/20 text-purple-400"
+                          : insights.suggestedLeadStatus === "Converted"
+                          ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                          : "bg-zinc-800 border-zinc-850 text-zinc-400"
+                      }`}>
+                        {insights.suggestedLeadStatus}
+                      </span>
+                    </div>
+
+                    {/* Suggested Follow Up */}
+                    <div className="flex justify-between items-center bg-zinc-900/20 border border-zinc-900 p-2.5 rounded-lg">
+                      <span className="text-zinc-500 font-semibold">Follow-up state:</span>
+                      <span className={`font-bold ${insights.suggestedFollowUp ? "text-amber-450" : "text-emerald-450"}`}>
+                        {insights.suggestedFollowUp ? "⚠️ Action Required" : "✓ Autopilot"}
+                      </span>
+                    </div>
+
+                    {/* Confidence Score */}
+                    <div className="space-y-1 bg-zinc-900/20 border border-zinc-900 p-2.5 rounded-lg">
+                      <div className="flex justify-between text-[10px] text-zinc-500 font-semibold">
+                        <span>Intent Confidence</span>
+                        <span>{Math.round(insights.confidenceScore * 100)}%</span>
+                      </div>
+                      <div className="h-1 w-full bg-zinc-950 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-purple-600 rounded-full transition-all duration-300"
+                          style={{ width: `${insights.confidenceScore * 100}%` }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  {liveAIEnabled ? (
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block">✓ Active & Secured</span>
-                      <p className="text-[9px] text-zinc-500 leading-relaxed">
-                        OpenAI API keys are configured server-side only through environment variables.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider block">✗ Missing Server Key</span>
-                      <p className="text-[9px] text-zinc-550 leading-relaxed">
-                        No server key detected. Add <code className="text-zinc-300 bg-zinc-900 px-1 py-0.5 rounded">OPENAI_API_KEY</code> to <code className="text-zinc-300 bg-zinc-905 px-1.5 py-0.5 rounded">.env.local</code> and restart the dev server.
-                      </p>
-                    </div>
-                  )}
-                </div>
+                ) : (
+                  <div className="p-4 text-center border border-dashed border-zinc-900 rounded-lg text-[10px] text-zinc-500 italic">
+                    No message history logged yet. Send a message or use voice mode to audit AI diagnostics.
+                  </div>
+                )}
+              </div>
 
-                {/* Model Selector (Locked Preview) */}
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-1">
-                    Model Selector <span className="text-purple-400 font-bold">(Preview Only)</span>
-                  </label>
-                  <select
-                    disabled
-                    value="gpt-4o-mini"
-                    className="w-full rounded-lg border border-zinc-900 bg-zinc-950 px-3 py-2 text-xs text-zinc-500 cursor-not-allowed focus:outline-none"
-                  >
-                    <option value="gpt-4o-mini">gpt-4o-mini (Server Default)</option>
-                    <option value="gpt-4o">gpt-4o (Locked)</option>
-                    <option value="o1-preview">o1-preview (Locked)</option>
-                  </select>
-                  <p className="text-[8px] text-zinc-600 mt-1">
-                    Model choice is locked server-side to gpt-4o-mini for safety.
-                  </p>
+              {/* Production Settings Form */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Cpu className="h-4 w-4 text-purple-400" />
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-300">
+                    Production Settings
+                  </h3>
                 </div>
+                
+                <p className="text-[10px] text-zinc-500 leading-relaxed">
+                  Configure prompt parameters and verify server keys for your workspace.
+                </p>
 
-                {/* Temperature Slider */}
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-1 flex justify-between">
-                    <span>Temperature</span>
-                    <span className="text-purple-400 font-bold">{temperature}</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={temperature}
-                    onChange={(e) => setTemperature(e.target.value)}
-                    className="w-full accent-purple-600 bg-zinc-900 h-1 rounded-lg cursor-pointer"
-                  />
+                <div className="space-y-4">
+                  {/* Secure API Key Status Indicator */}
+                  <div className="bg-zinc-900/30 border border-zinc-900 p-3 rounded-lg space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-zinc-300">
+                      <Key className="h-3.5 w-3.5 text-purple-400" />
+                      <span>Server API Key</span>
+                    </div>
+                    {liveAIEnabled ? (
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block">✓ Active & Secured</span>
+                        <p className="text-[9px] text-zinc-500 leading-relaxed">
+                          OpenAI API keys are configured server-side only through environment variables.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider block">✗ Missing Server Key</span>
+                        <p className="text-[9px] text-zinc-555 leading-relaxed">
+                          No server key detected. Add <code className="text-zinc-300 bg-zinc-900 px-1 py-0.5 rounded">OPENAI_API_KEY</code> to <code className="text-zinc-305 bg-zinc-905 px-1.5 py-0.5 rounded">.env.local</code> and restart the dev server.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Model Selector (Locked Preview) */}
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-1">
+                      Model Selector <span className="text-purple-400 font-bold">(Preview Only)</span>
+                    </label>
+                    <select
+                      disabled
+                      value="gpt-4o-mini"
+                      className="w-full rounded-lg border border-zinc-900 bg-zinc-950 px-3 py-2 text-xs text-zinc-500 cursor-not-allowed focus:outline-none"
+                    >
+                      <option value="gpt-4o-mini">gpt-4o-mini (Server Default)</option>
+                      <option value="gpt-4o">gpt-4o (Locked)</option>
+                      <option value="o1-preview">o1-preview (Locked)</option>
+                    </select>
+                    <p className="text-[8px] text-zinc-600 mt-1">
+                      Model choice is locked server-side to gpt-4o-mini for safety.
+                    </p>
+                  </div>
+
+                  {/* Temperature Slider */}
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-1 flex justify-between">
+                      <span>Temperature</span>
+                      <span className="text-purple-400 font-bold">{temperature}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={temperature}
+                      onChange={(e) => setTemperature(e.target.value)}
+                      className="w-full accent-purple-600 bg-zinc-900 h-1 rounded-lg cursor-pointer"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="rounded-lg bg-purple-950/15 border border-purple-900/25 p-3 text-[9px] text-purple-400/80 leading-relaxed shrink-0">
-            <strong>Security Notice:</strong> Local inputs are disabled. Keys can only be configured via environment variables server-side.
+            <div className="rounded-lg bg-purple-950/15 border border-purple-900/25 p-3 text-[9px] text-purple-400/80 leading-relaxed shrink-0">
+              <strong>Security Notice:</strong> Local inputs are disabled. Keys can only be configured via environment variables server-side.
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

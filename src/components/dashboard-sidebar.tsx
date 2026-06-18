@@ -35,6 +35,17 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) =>
 
   const pendingTrainingCount = trainingItems[activeWorkspaceId]?.length || 0;
 
+  React.useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen]);
+
   const menuItems = [
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
     { name: "Business Profile", href: "/dashboard/business", icon: Building },
