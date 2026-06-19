@@ -20,7 +20,7 @@ function normalizeDomain(urlStr: string): string {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { publicKey, sessionId, message, conversationHistory = [] } = body;
+    const { publicKey, sessionId, message, conversationHistory = [], parentDomain } = body;
 
     // 1. Core input validations
     if (!publicKey || !sessionId || !message) {
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
       if (allowedDomains.length > 0) {
         const referer = req.headers.get("referer");
         const origin = req.headers.get("origin");
-        const domainToCheck = referer || origin;
+        const domainToCheck = parentDomain || referer || origin;
 
         if (!domainToCheck) {
           return NextResponse.json(
