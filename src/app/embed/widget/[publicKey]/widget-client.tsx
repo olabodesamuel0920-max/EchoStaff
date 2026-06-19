@@ -16,6 +16,8 @@ interface WidgetClientProps {
     displayName: string;
     allowedDomains: string[];
   } | null;
+  isPreview?: boolean;
+  publicKey?: string;
   parentDomain?: string;
 }
 

@@ -1,5 +1,6 @@
 import React from "react";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { headers } from "next/headers";
 import WidgetClient from "./widget-client";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,9 @@ export default async function WidgetEmbedPage({
 }: PageProps) {
   const { publicKey } = await params;
   const sParams = await searchParams;
+
+  const headersList = await headers();
+  const referer = headersList.get("referer") || "";
 
   let config = null;
   const isPreview = publicKey === "preview";
@@ -64,5 +68,5 @@ export default async function WidgetEmbedPage({
     }
   }
 
-  return <WidgetClient initialConfig={config} isPreview={isPreview} publicKey={publicKey} />;
+  return <WidgetClient initialConfig={config} isPreview={isPreview} publicKey={publicKey} parentDomain={referer} />;
 }

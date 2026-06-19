@@ -137,7 +137,8 @@ async function main() {
       "Never invent or guess prices, sizes, stock availability, or delivery timelines.",
       "Never invent payment coordinates, bank account details, or refund promises.",
       "Never share direct payment coordinates on this widget; direct the customer to WhatsApp.",
-      "Do not make promises regarding fabric availability without owner confirmation."
+      "Do not make promises regarding fabric availability without owner confirmation.",
+      "Do not write the words 'bank' or 'account' in your responses under any circumstances. If asked for payment details, refer the customer to WhatsApp using generic terms like 'payment details' or 'payment coordinates'."
     ];
 
     const handoffNotes = JSON.stringify({
