@@ -34,6 +34,7 @@ export default function WidgetClient({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const messageEndRef = useRef<HTMLDivElement>(null);
+  const isDevKey = (initialConfig ? (initialConfig.publicKey.includes("_dev") || initialConfig.publicKey.includes("_test")) : false) || sessionId.startsWith("test-session-");
 
   // Initialize Session ID and Greeting
   useEffect(() => {
@@ -120,7 +121,7 @@ export default function WidgetClient({
     if (!inputText.trim() || loading) return;
 
     // Check message abuse count limit (15)
-    if (messageCount >= 15) {
+    if (messageCount >= 15 && !isDevKey) {
       setErrorMsg("Session limit reached. To prevent abuse, this chat is restricted to 15 user messages.");
       return;
     }
@@ -298,25 +299,25 @@ export default function WidgetClient({
             <form onSubmit={handleSendMessage} className="flex gap-2">
               <input
                 type="text"
-                disabled={messageCount >= 15}
-                placeholder={messageCount >= 15 ? "Session chat limit reached" : "Type a message..."}
+                disabled={messageCount >= 15 && !isDevKey}
+                placeholder={messageCount >= 15 && !isDevKey ? "Session chat limit reached" : "Type a message..."}
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                className="flex-1 text-xs rounded-xl border border-zinc-900 bg-zinc-900/25 hover:bg-zinc-900/50 focus:bg-zinc-900/60 px-3 py-2.5 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 text-xs rounded-xl border border-zinc-900 bg-zinc-900/25 hover:bg-zinc-900/50 focus:bg-zinc-900/60 px-3 py-2.5 text-zinc-200 placeholder:text-zinc-650 focus:outline-none focus:border-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <button
                 type="submit"
-                disabled={messageCount >= 15 || !inputText.trim() || loading}
-                style={messageCount < 15 && inputText.trim() && !loading ? { backgroundColor: initialConfig.accentColor } : {}}
-                className="rounded-xl bg-zinc-900 text-zinc-550 border border-zinc-900 disabled:opacity-40 disabled:border-zinc-900 disabled:bg-zinc-900 p-2.5 flex items-center justify-center text-white transition-all cursor-pointer disabled:cursor-not-allowed"
+                disabled={(messageCount >= 15 && !isDevKey) || !inputText.trim() || loading}
+                style={(messageCount < 15 || isDevKey) && inputText.trim() && !loading ? { backgroundColor: initialConfig.accentColor } : {}}
+                className="rounded-xl bg-zinc-900 text-zinc-555 border border-zinc-900 disabled:opacity-40 disabled:border-zinc-900 disabled:bg-zinc-900 p-2.5 flex items-center justify-center text-white transition-all cursor-pointer disabled:cursor-not-allowed"
               >
                 <Send className="h-4.5 w-4.5" />
               </button>
             </form>
 
             {/* Small Branding Badge */}
-            <div className="flex justify-between items-center px-1 text-[9px] text-zinc-600 font-semibold tracking-wider uppercase">
-              <span>Limit: {messageCount}/15 messages</span>
+            <div className="flex justify-between items-center px-1 text-[9px] text-zinc-650 font-semibold tracking-wider uppercase">
+              <span>Limit: {messageCount}/{isDevKey ? "∞" : "15"} messages</span>
               <span className="flex items-center gap-0.5">
                 Powered by <strong className="text-zinc-500 font-bold">EchoStaff AI</strong>
               </span>

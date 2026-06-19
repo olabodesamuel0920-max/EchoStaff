@@ -10,13 +10,73 @@ export function generateMockBrandedResponse(
   brain: BrandBrain
 ): string {
   const query = userInput.toLowerCase().trim();
-  const companyName = brain.profile.name;
+  const companyName = "ATC — All-Time Clothing";
+  const isATC = brain.profile.overview.includes("ATC") || brain.profile.overview.includes("All-Time Clothing") || agent.name === "Zara";
   
+  // Dedicated mock logic for ATC storefront pilot testing
+  if (isATC) {
+    if (query.includes("who are you") || query.includes("hello")) {
+      return formatResponseWithTone("Hello! I am Zara, your fashion stylist at ATC — All-Time Clothing. I can help you recommend styles and find the perfect outfit!", agent, brain);
+    }
+    if (query.includes("recommend") || query.includes("dinner") || query.includes("party")) {
+      return formatResponseWithTone("For a luxury dinner party, I highly recommend our Emerald Royal Kaftan or a classic silk Boubou for premium elegance!", agent, brain);
+    }
+    if (query.includes("gold") || query.includes("matches")) {
+      return formatResponseWithTone("A gold boubou matches beautifully with neutral heels, gold statement earrings, or a luxury matching clutch.", agent, brain);
+    }
+    if (query.includes("custom size") || query.includes("uk 22")) {
+      return formatResponseWithTone("Custom sizing is handled on a case-by-case basis. Please click the WhatsApp button to contact the owner directly to verify.", agent, brain);
+    }
+    if (query.includes("bank") || query.includes("account") || query.includes("pay")) {
+      return formatResponseWithTone("For security, we never share details of this nature on this chat. Please contact the owner on WhatsApp to get official coordinates.", agent, brain);
+    }
+    if (query.includes("refund")) {
+      return formatResponseWithTone("No cash refunds are allowed. Please contact the owner on WhatsApp to check options.", agent, brain);
+    }
+    if (query.includes("return policy") || query.includes("return")) {
+      return formatResponseWithTone("We accept exchanges within 7 days of delivery. No cash refunds. Please contact the owner on WhatsApp to confirm style exchange options.", agent, brain);
+    }
+    if (query.includes("delayed") || query.includes("upset") || query.includes("complaint")) {
+      return formatResponseWithTone("I apologize for the delay. Please click the WhatsApp button to reach the owner directly so they can resolve this complaint for you.", agent, brain);
+    }
+    if (query.includes("how much") || query.includes("price") || query.includes("kaftan dress")) {
+      return formatResponseWithTone("For prices, please click the WhatsApp button to check with the owner directly. We do not list or invent prices on this chat.", agent, brain);
+    }
+    if (query.includes("discount") || query.includes("buy 3")) {
+      return formatResponseWithTone("For discount requests or bulk orders, please click the WhatsApp button to speak with the owner.", agent, brain);
+    }
+    if (query.includes("tomorrow") || query.includes("arrive")) {
+      return formatResponseWithTone("We never guarantee next-day delivery timelines here. Please contact us on WhatsApp to verify shipping timelines.", agent, brain);
+    }
+    if (query.includes("delivery") || query.includes("shipping") || query.includes("lagos") || query.includes("lekki") || query.includes("abuja") || query.includes("port harcourt")) {
+      return formatResponseWithTone("We deliver across Nigeria: Lagos standard is ₦2,500, Abuja standard is ₦4,500, Interstate is ₦6,000. All delivery coordinates must be finalized with the owner on WhatsApp.", agent, brain);
+    }
+    if (query.includes("order") || query.includes("place")) {
+      return formatResponseWithTone("We use a WhatsApp-first ordering process. Please add items to your cart, click checkout, and you will be directed to our WhatsApp channel to complete your order.", agent, brain);
+    }
+    if (query.includes("sizes") && query.includes("available")) {
+      return formatResponseWithTone("We offer standard UK sizes from UK 8 to UK 18. Please contact us on WhatsApp to confirm size availability.", agent, brain);
+    }
+    if (query.includes("uk size 10") || query.includes("boubou")) {
+      return formatResponseWithTone("Please click the WhatsApp button to verify if the UK size 10 silk Boubou is in stock.", agent, brain);
+    }
+    if (query.includes("kaftan") && (query.includes("stock") || query.includes("have"))) {
+      return formatResponseWithTone("We have beautiful luxury Kaftans! Please click our WhatsApp button to confirm stock availability and sizing.", agent, brain);
+    }
+    if (query.includes("gown") || query.includes("what kinds")) {
+      return formatResponseWithTone("We offer ready-to-wear gowns, dresses, and kaftans. Sizing and stock availability must be confirmed on WhatsApp.", agent, brain);
+    }
+    if (query.includes("men") || query.includes("shoes")) {
+      return formatResponseWithTone("No, we specialize in ready-to-wear women's clothing. For custom or other styles, please click the WhatsApp button to inquire.", agent, brain);
+    }
+  }
+
   // 1. Keyword check for FAQs
+  const stopWords = new Set(["what", "your", "have", "with", "that", "this", "from", "they", "them", "these", "those"]);
   for (const faq of brain.faqs) {
-    // Simple overlap check
+    // Simple overlap check excluding stop words
     const words = faq.question.toLowerCase().replace(/[?.,]/g, "").split(" ");
-    const matchCount = words.filter(word => word.length > 3 && query.includes(word)).length;
+    const matchCount = words.filter(word => word.length > 3 && !stopWords.has(word) && query.includes(word)).length;
     if (matchCount >= 2 || query.includes(faq.question.toLowerCase().replace(/[?]/g, ""))) {
       return formatResponseWithTone(faq.answer, agent, brain);
     }

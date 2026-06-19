@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "qa:create-user": "tsx --env-file=.env.local scripts/create-qa-user.ts"
+    "qa:create-user": "tsx --env-file=.env.local scripts/create-qa-user.ts",
+    "qa:setup-atc": "tsx --env-file=.env.local scripts/setup-atc-pilot.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
