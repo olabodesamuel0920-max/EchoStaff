@@ -16,14 +16,14 @@ interface WidgetClientProps {
     displayName: string;
     allowedDomains: string[];
   } | null;
-  isPreview: boolean;
-  publicKey: string;
+  parentDomain?: string;
 }
 
 export default function WidgetClient({
   initialConfig,
   isPreview,
   publicKey,
+  parentDomain = "",
 }: WidgetClientProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -32,6 +32,17 @@ export default function WidgetClient({
   const [sessionId, setSessionId] = useState("");
   const [messageCount, setMessageCount] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [resolvedParentDomain, setResolvedParentDomain] = useState(parentDomain);
+
+  // Client-side document.referrer fallback for parent page domain validation
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const docReferrer = document.referrer;
+      if (docReferrer && docReferrer !== resolvedParentDomain) {
+        setResolvedParentDomain(docReferrer);
+      }
+    }
+  }, [resolvedParentDomain]);
 
   const messageEndRef = useRef<HTMLDivElement>(null);
   const isDevKey = (initialConfig ? (initialConfig.publicKey.includes("_dev") || initialConfig.publicKey.includes("_test")) : false) || sessionId.startsWith("test-session-");
@@ -163,6 +174,7 @@ export default function WidgetClient({
           sessionId,
           message: userText,
           conversationHistory: recentHistory,
+          parentDomain: resolvedParentDomain,
         }),
       });
 
