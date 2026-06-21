@@ -104,7 +104,9 @@ export function generateMockBrandedResponse(
   // 4. Default dynamic response depending on tone & personality
   let defaultBase = "";
   
-  if (agent.tone.toLowerCase().includes("empathetic") || agent.tone.toLowerCase().includes("sophisticated") || agent.tone.toLowerCase().includes("warm")) {
+  if (isATC) {
+    defaultBase = `Thank you for reaching out to ATC — All-Time Clothing. Sizing, pricing, and live stock availability must be confirmed on our WhatsApp channel. Please click our WhatsApp button so you can speak directly with the owner to assist you further!`;
+  } else if (agent.tone.toLowerCase().includes("empathetic") || agent.tone.toLowerCase().includes("sophisticated") || agent.tone.toLowerCase().includes("warm")) {
     defaultBase = `Thank you so much for reaching out to us here at ${companyName}. I want to make sure we address your needs perfectly. Based on our focus on ${brain.profile.overview.slice(0, 80)}..., I recommend scheduling a custom consultation so we can tailor a plan specifically for you. Is there a particular day this week that suits you?`;
   } else if (agent.tone.toLowerCase().includes("direct") || agent.tone.toLowerCase().includes("analytical") || agent.tone.toLowerCase().includes("efficient")) {
     defaultBase = `At ${companyName}, our operations are optimized for high efficiency. Regarding your question, we utilize integrated logistics mapping to solve this. Our data shows a typical 15% reduction in fuel consumption and a 22% improvement in routing times. I suggest we schedule a brief 10-minute screen-share demonstration with an integration engineer. What is your availability?`;
@@ -115,7 +117,7 @@ export function generateMockBrandedResponse(
   }
 
   // Inject a "Do Rule" into the default response if available to make it look smart
-  if (brain.doRules && brain.doRules.length > 0) {
+  if (!isATC && brain.doRules && brain.doRules.length > 0) {
     const randomDoRule = brain.doRules[0]; // grab the first rule
     // Softly mix it in or append
     if (!defaultBase.includes(randomDoRule)) {
