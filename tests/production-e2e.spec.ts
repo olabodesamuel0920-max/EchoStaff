@@ -113,7 +113,7 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     await page.click("button:has-text('Save Profile Configurations')");
     await expect(page.locator("text=Profile Saved").first()).toBeVisible();
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(3000); // extra database write/trigger buffer
+    await page.waitForTimeout(8000); // extra database write/trigger buffer (extended for Vercel production network latency)
     
     // Reload and check if persists
     await page.reload();

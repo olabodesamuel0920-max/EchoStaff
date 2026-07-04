@@ -12,7 +12,7 @@ async function rotate() {
 
   // 1. Generate strong QA password
   const randomPart = crypto.randomBytes(12).toString('hex');
-  const newPassword = `Pilot_QA_${randomPart}_#ES!`;
+  const newPassword = `Pilot_QA_${randomPart}_ES!`;
 
   // 2. Read and update .env.local
   let envContent = fs.readFileSync(envPath, 'utf8');

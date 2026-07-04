@@ -14,6 +14,24 @@ async function main() {
     .update({ name: "My First Workspace", industry: "Consulting" })
     .eq("id", "6b901ad6-2592-4462-84fe-c2fa3e2f50a6");
 
+  // Restore User B's Brand Brain Profile to prevent name revert triggers
+  await supabaseAdmin
+    .from("brand_brains")
+    .update({
+      owner_notes: JSON.stringify({
+        ownerNotes: "",
+        profile: {
+          name: "My First Workspace",
+          industry: "Consulting",
+          overview: "General consulting and advisory services.",
+          pricingNotes: "",
+          policies: "",
+          products: []
+        }
+      })
+    })
+    .eq("id", "6b901ad6-2592-4462-84fe-c2fa3e2f50a6");
+
   if (err1) {
     console.error("[-] Failed to restore User B's workspace:", err1);
   } else {
@@ -24,6 +42,24 @@ async function main() {
   const { error: err2 } = await supabaseAdmin
     .from("workspaces")
     .update({ name: "ATC — All-Time Clothing", industry: "Fashion / clothing ecommerce" })
+    .eq("id", "1316bbb4-b45f-4299-acc5-f8292179900c");
+
+  // Restore User A's Brand Brain Profile to prevent name revert triggers
+  await supabaseAdmin
+    .from("brand_brains")
+    .update({
+      owner_notes: JSON.stringify({
+        ownerNotes: "",
+        profile: {
+          name: "ATC — All-Time Clothing",
+          industry: "Fashion / clothing ecommerce",
+          overview: "ATC — All-Time Clothing is a luxury Nigerian ecommerce boutique specializing in ready-to-wear premium women's clothing, dresses, gowns, outfits, and fashion pieces.",
+          pricingNotes: "Standard shipping is ₦3,500. Next-day delivery inside Lagos is ₦5,000.",
+          policies: "Standard exchange policy is 7 days from purchase.",
+          products: ["women’s clothing", "dresses", "gowns", "outfits", "fashion pieces"]
+        }
+      })
+    })
     .eq("id", "1316bbb4-b45f-4299-acc5-f8292179900c");
 
   if (err2) {

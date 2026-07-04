@@ -4,7 +4,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const qaEmail = process.env.QA_EMAIL!;
 const qaPassword = process.env.QA_PASSWORD!;
-const WORKSPACE_ID = "00196c11-cf2c-4e20-b033-444dc5af8bc5";
+const WORKSPACE_ID = "1316bbb4-b45f-4299-acc5-f8292179900c";
 
 async function main() {
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
