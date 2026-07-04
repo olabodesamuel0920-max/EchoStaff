@@ -119,6 +119,18 @@ async function main() {
   } else {
     console.log("[+] Cleaned up call scenarios and simulations for QA workspaces.");
   }
+
+  // 5. Clean up custom Amina QA agents from all workspaces to prevent tenant leakage
+  const { error: errAgents } = await supabaseAdmin
+    .from("agents")
+    .delete()
+    .eq("name", "Amina QA");
+
+  if (errAgents) {
+    console.error("[-] Failed to clean up custom agents:", errAgents);
+  } else {
+    console.log("[+] Purged custom Amina QA agents from database.");
+  }
 }
 
 main().catch(console.error);

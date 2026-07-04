@@ -38,17 +38,15 @@ async function robustLogin(page: any, targetUrl: string, email: string, password
   await page.waitForTimeout(2000);
 }
 
-async function ensureCorrectWorkspaceActive(page: any) {
+async function selectATCWorkspace(page: any) {
   const wsSelectorBtn = page.locator("button:has(span.bg-purple-500)").first();
   await expect(wsSelectorBtn).toBeVisible({ timeout: 15000 });
-  const activeWsText = await page.locator("button:has(span.bg-purple-500) span").nth(1).innerText();
-  if (activeWsText !== "ATC — All-Time Clothing") {
-    console.log(`[E2E] Active workspace is "${activeWsText}", switching to "ATC — All-Time Clothing"...`);
-    await wsSelectorBtn.click();
-    await page.waitForTimeout(1000);
-    await page.locator("button:has-text('ATC — All-Time Clothing')").first().click();
-    await page.waitForTimeout(2000);
-  }
+  await wsSelectorBtn.click();
+  await page.waitForTimeout(1000);
+  const targetOption = page.locator("button:has-text('Fashion / clothing ecommerce')").first();
+  await expect(targetOption).toBeVisible({ timeout: 5000 });
+  await targetOption.click();
+  await page.waitForTimeout(2000);
 }
 
 test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
@@ -137,7 +135,7 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     // 1. Update Business Profile & Refresh
     await page.goto(`${targetUrl}/dashboard/business`);
     await page.waitForLoadState("networkidle");
-    await ensureCorrectWorkspaceActive(page);
+    await selectATCWorkspace(page);
     await page.waitForTimeout(1000);
     const clientNameInput = page.locator("input[placeholder*='e.g. Luna Aesthetics']").first();
     await expect(clientNameInput).toBeVisible();
@@ -157,14 +155,14 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     // Reload and check if persists
     await page.reload();
     await page.waitForLoadState("networkidle");
-    await ensureCorrectWorkspaceActive(page);
+    await selectATCWorkspace(page);
     const clientNameInputReloaded = page.locator("input[placeholder*='e.g. Luna Aesthetics']").first();
     await expect(clientNameInputReloaded).toHaveValue(testBusinessName, { timeout: 15000 });
 
     // 2. Add FAQs & Do/Don't Rules & Refresh
     await page.goto(`${targetUrl}/dashboard/brand-brain`);
     await page.waitForLoadState("networkidle");
-    await ensureCorrectWorkspaceActive(page);
+    await selectATCWorkspace(page);
     await page.waitForTimeout(1000);
     
     // Add FAQ
@@ -193,7 +191,7 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     // 3. Create Agent & Refresh
     await page.goto(`${targetUrl}/dashboard/agents`);
     await page.waitForLoadState("networkidle");
-    await ensureCorrectWorkspaceActive(page);
+    await selectATCWorkspace(page);
     await page.waitForTimeout(1000);
     await page.click("button:has-text('Build AI Staff Member')");
     await page.fill("input[placeholder*='Sophia']", "Amina QA");
@@ -206,7 +204,7 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     // 4. Playground Message
     await page.goto(`${targetUrl}/dashboard/playground`);
     await page.waitForLoadState("networkidle");
-    await ensureCorrectWorkspaceActive(page);
+    await selectATCWorkspace(page);
     await page.waitForTimeout(1000);
     await page.fill("input[placeholder*='Ask']", "Hi Amina, do you deliver to Lekki?");
     await page.click("button[type='submit']");
@@ -217,7 +215,7 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     // 5. Call Lab Simulator E2E check
     await page.goto(`${targetUrl}/dashboard/call-lab`);
     await page.waitForLoadState("networkidle");
-    await ensureCorrectWorkspaceActive(page);
+    await selectATCWorkspace(page);
     await page.waitForTimeout(1000);
     
     // Create custom test scenario first since this workspace is brand new and has no default scenarios
