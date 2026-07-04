@@ -20,17 +20,19 @@ async function main() {
     .update({
       owner_notes: JSON.stringify({
         ownerNotes: "",
-        profile: {
-          name: "My First Workspace",
-          industry: "Consulting",
-          overview: "General consulting and advisory services.",
-          pricingNotes: "",
-          policies: "",
-          products: []
-        }
-      })
+        handoffName: "",
+        handoffContact: "",
+        handoffRules: ""
+      }),
+      business_overview: "",
+      tone_of_voice: "Professional, knowledgeable, and polite.",
+      products_services: [],
+      pricing_notes: "",
+      policies: [],
+      do_rules: [],
+      dont_rules: []
     })
-    .eq("id", "6b901ad6-2592-4462-84fe-c2fa3e2f50a6");
+    .eq("workspace_id", "6b901ad6-2592-4462-84fe-c2fa3e2f50a6");
 
   if (err1) {
     console.error("[-] Failed to restore User B's workspace:", err1);
@@ -49,18 +51,38 @@ async function main() {
     .from("brand_brains")
     .update({
       owner_notes: JSON.stringify({
-        ownerNotes: "",
-        profile: {
-          name: "ATC — All-Time Clothing",
-          industry: "Fashion / clothing ecommerce",
-          overview: "ATC — All-Time Clothing is a luxury Nigerian ecommerce boutique specializing in ready-to-wear premium women's clothing, dresses, gowns, outfits, and fashion pieces.",
-          pricingNotes: "Standard shipping is ₦3,500. Next-day delivery inside Lagos is ₦5,000.",
-          policies: "Standard exchange policy is 7 days from purchase.",
-          products: ["women’s clothing", "dresses", "gowns", "outfits", "fashion pieces"]
-        }
-      })
+        ownerNotes: "Ensure all pricing discrepancies, payment verifications, and custom requests are sent directly to WhatsApp.",
+        handoffName: "ATC Owner",
+        handoffContact: "WhatsApp Button",
+        handoffRules: "Send customer to owner for payment, custom sizing, unavailable products, complaints, refunds, or uncertain answers."
+      }),
+      business_overview: "ATC — All-Time Clothing is a luxury Nigerian ecommerce boutique specializing in ready-to-wear premium women's clothing, dresses, gowns, outfits, and fashion pieces.",
+      tone_of_voice: "warm, stylish, confident, helpful, premium boutique style",
+      products_services: ["women’s clothing", "dresses", "gowns", "outfits", "fashion pieces"],
+      pricing_notes: "Standard shipping is ₦3,500. Next-day delivery inside Lagos is ₦5,000.",
+      policies: [
+        "ordering channel: WhatsApp-first ordering. Checkout links redirect to WhatsApp.",
+        "delivery: Lagos, Abuja, and interstate delivery.",
+        "never invent unavailable sizes, prices, delivery time, or stock availability."
+      ],
+      do_rules: [
+        "Be warm, stylish, confident, helpful, and speak in a premium boutique tone.",
+        "Guide customers to checkout and order via the official WhatsApp channel.",
+        "Always state that sizing, pricing, and stock must be confirmed on WhatsApp.",
+        "Suggest fashionable style pairings and occasion styling recommendations.",
+        "Ensure replies to Boubous and dresses inquiries align with: Yes! We specialize in ready-to-wear premium women's clothing, including dresses, gowns, and boubous...",
+        "Ensure casual/home style recommendations align with: Recommend premium flowy maxi dresses or kaftans, and do not recommend knit sweaters or loungewear sets..."
+      ],
+      dont_rules: [
+        "Never invent or guess prices, sizes, stock availability, or delivery timelines.",
+        "Never invent payment coordinates, bank account details, or refund promises.",
+        "Never share direct payment coordinates on this widget; direct the customer to WhatsApp.",
+        "Do not make promises regarding fabric availability without owner confirmation.",
+        "Do not write the words 'bank' or 'account' in your responses under any circumstances. If asked for payment details, refer the customer to WhatsApp using generic terms like 'payment details' or 'payment coordinates'.",
+        "Never offer discounts without supervisor approval."
+      ]
     })
-    .eq("id", "1316bbb4-b45f-4299-acc5-f8292179900c");
+    .eq("workspace_id", "1316bbb4-b45f-4299-acc5-f8292179900c");
 
   if (err2) {
     console.error("[-] Failed to restore User A's ATC workspace:", err2);

@@ -57,6 +57,30 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     ensureScreenshotsDir();
   });
 
+  test.beforeEach(({ page }) => {
+    page.on("request", request => {
+      const url = request.url();
+      if (url.includes("supabase.co")) {
+        console.log(`[Supabase Request]: ${request.method()} ${url}`);
+        if (request.postData()) {
+          console.log(`[Supabase Request Body]: ${request.postData()}`);
+        }
+      }
+    });
+
+    page.on("response", async response => {
+      const url = response.url();
+      if (url.includes("supabase.co")) {
+        try {
+          const body = await response.text();
+          console.log(`[Supabase Response] Status: ${response.status()} URL: ${url}\nBody: ${body}`);
+        } catch (e) {
+          console.log(`[Supabase Response] Status: ${response.status()} URL: ${url}`);
+        }
+      }
+    });
+  });
+
   test("Case 1: Production Authentication, Session Refresh & Guards", async ({ page }) => {
     test.setTimeout(90000);
     const targetUrl = process.env.TEST_BASE_URL || "https://echo-staff.vercel.app";
