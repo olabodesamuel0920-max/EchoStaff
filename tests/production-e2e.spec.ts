@@ -96,6 +96,29 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     // Login
     await robustLogin(page, targetUrl, QA_EMAIL_1, QA_PASSWORD);
 
+    // Diagnostic logging for Supabase network traffic
+    page.on("request", request => {
+      const url = request.url();
+      if (url.includes("supabase.co")) {
+        console.log(`[Supabase Request]: ${request.method()} ${url}`);
+        if (request.postData()) {
+          console.log(`[Supabase Request Body]: ${request.postData()}`);
+        }
+      }
+    });
+
+    page.on("response", async response => {
+      const url = response.url();
+      if (url.includes("supabase.co")) {
+        try {
+          const body = await response.text();
+          console.log(`[Supabase Response] Status: ${response.status()} URL: ${url}\nBody: ${body}`);
+        } catch (e) {
+          console.log(`[Supabase Response] Status: ${response.status()} URL: ${url}`);
+        }
+      }
+    });
+
     // 1. Update Business Profile & Refresh
     await page.goto(`${targetUrl}/dashboard/business`);
     await page.waitForLoadState("networkidle");
@@ -118,9 +141,8 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     // Reload and check if persists
     await page.reload();
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(2000);
-    const loadedVal = await clientNameInput.inputValue();
-    expect(loadedVal).toBe(testBusinessName);
+    const clientNameInputReloaded = page.locator("input[placeholder*='e.g. Luna Aesthetics']").first();
+    await expect(clientNameInputReloaded).toHaveValue(testBusinessName, { timeout: 15000 });
 
     // 2. Add FAQs & Do/Don't Rules & Refresh
     await page.goto(`${targetUrl}/dashboard/brand-brain`);
@@ -254,12 +276,13 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
 
     // 2. Go to Business profile and verify it does NOT see User A's updated business name
     await page.goto(`${targetUrl}/dashboard/business`);
-    await page.waitForTimeout(2000);
-    const loadedVal = await page.locator("input[placeholder*='e.g. Luna Aesthetics']").first().inputValue();
+    await page.waitForLoadState("networkidle");
+    const clientNameInput = page.locator("input[placeholder*='e.g. Luna Aesthetics']").first();
+    await expect(clientNameInput).toBeVisible();
     
     // User B's business profile name should be their own, e.g., "QA Testing Inc" or "Pilot Client",
     // and definitely NOT the "Eka Kitchen & Catering QA" created by User A.
-    expect(loadedVal).not.toBe("Eka Kitchen & Catering QA");
+    await expect(clientNameInput).not.toHaveValue("Eka Kitchen & Catering QA", { timeout: 15000 });
 
     // 3. Go to Agents page and verify Amina QA does NOT exist for User B
     await page.goto(`${targetUrl}/dashboard/agents`);
