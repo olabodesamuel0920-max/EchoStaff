@@ -130,14 +130,14 @@ export default function LandingPage() {
               href="/signup" 
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 px-6 py-3.5 text-sm font-semibold text-white shadow-xl shadow-purple-500/20 transition-all cursor-pointer"
             >
-              <span>Start training your AI staff</span>
+              <span>Start Private Beta</span>
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link 
               href="/dashboard" 
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900 px-6 py-3.5 text-sm font-medium text-zinc-300 transition-colors cursor-pointer"
             >
-              <span>View live demo</span>
+              <span>Book Demo</span>
             </Link>
           </div>
         </div>
@@ -238,6 +238,63 @@ export default function LandingPage() {
             <p className="mt-2 text-zinc-400 text-sm leading-relaxed">
               Every query we fail to answer goes to the owner. Review, type a correction, and the Brand Brain updates instantly, improving operations.
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Use Cases Section */}
+      <section id="use-cases" className="py-20 bg-zinc-950 border-t border-zinc-900">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center max-w-3xl mx-auto">
+            <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">Industry Blueprints</span>
+            <h2 className="text-3xl font-bold tracking-tight text-white mt-2">
+              Designed for Small & Medium Businesses
+            </h2>
+            <p className="mt-4 text-zinc-400 text-sm leading-relaxed">
+              EchoStaff AI adapts to your industry's specific workflow, policies, and channels.
+            </p>
+          </div>
+
+          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+            <div className="rounded-xl border border-zinc-900 bg-zinc-950/40 p-5 glass-panel">
+              <span className="text-xs font-bold text-purple-400">Fashion & Retail</span>
+              <h4 className="text-sm font-semibold text-white mt-2">WhatsApp Catalog Funnel</h4>
+              <p className="mt-2 text-zinc-400 text-xs leading-relaxed">
+                Filter standard sizes and delivery fees, block payment credential exposure, and route high-intent buyers directly to WhatsApp checkout.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-zinc-900 bg-zinc-950/40 p-5 glass-panel">
+              <span className="text-xs font-bold text-indigo-400">Salons & Spas</span>
+              <h4 className="text-sm font-semibold text-white mt-2">Consultation Bookings</h4>
+              <p className="mt-2 text-zinc-400 text-xs leading-relaxed">
+                Qualify client concerns, explain custom aesthetic treatments, and coordinate booking deposits securely.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-zinc-900 bg-zinc-950/40 p-5 glass-panel">
+              <span className="text-xs font-bold text-emerald-400">Restaurants & Catering</span>
+              <h4 className="text-sm font-semibold text-white mt-2">Order Pre-Qualification</h4>
+              <p className="mt-2 text-zinc-400 text-xs leading-relaxed">
+                Deliver smoky menu details, pricing packages, and deposit policies before transferring orders to your kitchen staff.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-zinc-900 bg-zinc-950/40 p-5 glass-panel">
+              <span className="text-xs font-bold text-amber-400">Schools & Academies</span>
+              <h4 className="text-sm font-semibold text-white mt-2">Enrollment Guidance</h4>
+              <p className="mt-2 text-zinc-400 text-xs leading-relaxed">
+                Answer curriculum, tuition, and scheduling questions while booking tours for prospective parents.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-zinc-900 bg-zinc-950/40 p-5 glass-panel">
+              <span className="text-xs font-bold text-rose-400">Professional Services</span>
+              <h4 className="text-sm font-semibold text-white mt-2">Lead Qualification</h4>
+              <p className="mt-2 text-zinc-400 text-xs leading-relaxed">
+                Answer basic service capability questions and route hot leads directly to your CRM or scheduling calendars.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -409,40 +466,117 @@ export default function LandingPage() {
             <h2 className="text-3xl font-extrabold text-white mt-2 leading-tight">
               Agency Management Mode
             </h2>
-            <p className="text-zinc-400 mt-4 text-sm leading-relaxed">
-              Run a complete conversational agency. Create isolated client workspaces, assign dedicated staff, upload distinct Brand Brain assets, and charge customizable service retention fees. Switch client dashboards in one click.
-            </p>
+            <div className="space-y-3.5 text-xs text-zinc-400 leading-relaxed">
+              <div className="bg-zinc-900/40 border border-zinc-900 p-3 rounded-lg">
+                <span className="text-[10px] font-bold text-zinc-500 block mb-1">Customer Query</span>
+                <span className="text-zinc-300 font-medium">"do you sell gowns and do you deliver to Abuja?"</span>
+              </div>
+              <div className="bg-purple-950/10 border border-purple-900/20 p-3 rounded-lg">
+                <span className="text-[10px] font-bold text-purple-400 block mb-1">Zara Stylist</span>
+                <span className="text-zinc-300">"Yes! We specialize in ready-to-wear premium women's clothing, including gowns. We deliver to Abuja in 3-5 days for ₦4,500. Sizing and payment coordinates are finalized on WhatsApp."</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ATC Storefront Case Study Section */}
+      <section id="case-study" className="py-20 bg-black border-t border-zinc-900">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">Case Study & Proof</span>
+              <h2 className="text-3xl font-extrabold text-white mt-2 leading-tight">
+                Zara AI Stylist: ATC Storefront Pilot
+              </h2>
+              <p className="text-zinc-400 mt-4 text-sm leading-relaxed">
+                We deployed Zara, an AI Fashion Stylist, as a live web widget on the active ATC Storefront. Over a 7-day validation period, Zara acted as a premium digital concierge, helping customers navigate the catalog and transitioning them to order finalization.
+              </p>
+              <p className="text-zinc-400 mt-3 text-sm leading-relaxed">
+                By enforcing strict Brand Brain guidelines, Zara maintained absolute policy safety while driving high-intent customer handoffs to the business owner.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-4">
+                <div className="rounded-lg bg-zinc-900/50 border border-zinc-900 p-4 min-w-[140px]">
+                  <span className="text-2xl font-black text-white block">13</span>
+                  <span className="text-[10px] text-zinc-500 uppercase font-semibold">Conversations</span>
+                </div>
+                <div className="rounded-lg bg-zinc-900/50 border border-zinc-900 p-4 min-w-[140px]">
+                  <span className="text-2xl font-black text-purple-400 block">85.7%</span>
+                  <span className="text-[10px] text-zinc-500 uppercase font-semibold">High-Intent Rate</span>
+                </div>
+                <div className="rounded-lg bg-zinc-900/50 border border-zinc-900 p-4 min-w-[140px]">
+                  <span className="text-2xl font-black text-indigo-400 block">71.4%</span>
+                  <span className="text-[10px] text-zinc-500 uppercase font-semibold">WhatsApp Handoff</span>
+                </div>
+                <div className="rounded-lg bg-zinc-900/50 border border-zinc-900 p-4 min-w-[140px]">
+                  <span className="text-2xl font-black text-emerald-400 block">100%</span>
+                  <span className="text-[10px] text-zinc-500 uppercase font-semibold">Safety Score</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="glass-panel border border-purple-500/10 bg-purple-950/5 rounded-xl p-6 shadow-2xl space-y-4">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-purple-400 border-b border-zinc-900 pb-3">
+                Key Performance Insights
+              </h3>
+              <div className="space-y-3 text-xs">
+                <div className="flex justify-between items-start border-b border-zinc-900/50 pb-2">
+                  <span className="text-zinc-300 font-medium">85.7% High-Intent Rate</span>
+                  <span className="text-zinc-400 text-right max-w-[200px]">Customers actively asking about specific dresses, sizes, and colors.</span>
+                </div>
+                <div className="flex justify-between items-start border-b border-zinc-900/50 pb-2">
+                  <span className="text-zinc-300 font-medium">71.4% WhatsApp Redirection</span>
+                  <span className="text-zinc-400 text-right max-w-[200px]">Customers routed to the owner for order finalization with pre-filled source markers.</span>
+                </div>
+                <div className="flex justify-between items-start border-b border-zinc-900/50 pb-2">
+                  <span className="text-zinc-300 font-medium">Zero Hallucinations</span>
+                  <span className="text-zinc-400 text-right max-w-[200px]">Strict Brand Brain restrictions blocked out-of-stock dress claims and price fabrications.</span>
+                </div>
+                <div className="flex justify-between items-start">
+                  <span className="text-zinc-300 font-medium">Zero Policy Failures</span>
+                  <span className="text-zinc-400 text-right max-w-[200px]">100% adherence to forbidden claims, keeping the business reputation protected.</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Pricing Section */}
       <section id="pricing" className="py-20 max-w-7xl mx-auto px-6 border-t border-zinc-900">
-        <h2 className="text-3xl font-bold text-center tracking-tight text-white">
-          Simple SaaS Pricing Plans
-        </h2>
+        <div className="text-center max-w-3xl mx-auto mb-12">
+          <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">Pricing Structure</span>
+          <h2 className="text-3xl font-bold tracking-tight text-white mt-2">
+            Simple Private Beta Pricing Tiers
+          </h2>
+          <p className="mt-4 text-zinc-400 text-sm leading-relaxed">
+            All plans are billed manually during our private beta. Start with a 14-day trial to train your first agent.
+          </p>
+        </div>
 
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
           {/* Plan 1 */}
           <div className="rounded-xl border border-zinc-900 bg-zinc-950 p-6 flex flex-col justify-between relative overflow-hidden">
             <div>
-              <h3 className="text-lg font-bold text-zinc-200">Starter</h3>
+              <h3 className="text-lg font-bold text-zinc-200">Starter AI Staff</h3>
               <p className="mt-2 text-zinc-400 text-xs">For single independent service businesses.</p>
               <div className="mt-4 flex items-baseline gap-1">
                 <span className="text-3xl font-extrabold text-white">$49</span>
                 <span className="text-zinc-500 text-xs">/month</span>
               </div>
               <ul className="mt-6 space-y-3 text-xs text-zinc-400 border-t border-zinc-900 pt-6">
-                <li className="flex items-center gap-2">✓ 1 Active AI Staff Member</li>
-                <li className="flex items-center gap-2">✓ Web Chat widget integration</li>
-                <li className="flex items-center gap-2">✓ Basic Brand Brain context</li>
+                <li className="flex items-center gap-2">✓ 1 Active AI Web Assistant</li>
+                <li className="flex items-center gap-2">✓ Brand Brain (Profile & FAQs)</li>
+                <li className="flex items-center gap-2">✓ Standard Web Widget Embed</li>
+                <li className="flex items-center gap-2">✓ Safe 500 messages/month limit</li>
+                <li className="flex items-center gap-2">✓ Local state sandbox access</li>
               </ul>
             </div>
             <Link 
-              href="/signup" 
+              href="/signup?plan=Starter" 
               className="mt-8 block rounded-lg bg-zinc-900 border border-zinc-800 text-center py-2.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition-colors"
             >
-              Get Started
+              Start Private Beta
             </Link>
           </div>
 
@@ -452,47 +586,50 @@ export default function LandingPage() {
               Most Popular
             </div>
             <div>
-              <h3 className="text-lg font-bold text-zinc-200">Professional</h3>
-              <p className="mt-2 text-zinc-400 text-xs">For scaling companies and brick-and-mortar operators.</p>
+              <h3 className="text-lg font-bold text-zinc-200">Growth AI Staff</h3>
+              <p className="mt-2 text-zinc-400 text-xs">For scaling companies and retail storefronts.</p>
               <div className="mt-4 flex items-baseline gap-1">
                 <span className="text-3xl font-extrabold text-white">$149</span>
                 <span className="text-zinc-500 text-xs">/month</span>
               </div>
               <ul className="mt-6 space-y-3 text-xs text-zinc-400 border-t border-zinc-900/50 pt-6">
-                <li className="flex items-center gap-2">✓ 5 Active AI Staff Members</li>
-                <li className="flex items-center gap-2">✓ Web, WhatsApp, Instagram & Email</li>
-                <li className="flex items-center gap-2">✓ Complete Training Center access</li>
-                <li className="flex items-center gap-2">✓ 15% Fuel / Booking ROI optimization</li>
+                <li className="flex items-center gap-2">✓ Multiple Active AI Agents</li>
+                <li className="flex items-center gap-2">✓ Advanced Brand Brain (DO/DONT Rules)</li>
+                <li className="flex items-center gap-2">✓ Continuous Training Center loop</li>
+                <li className="flex items-center gap-2">✓ Expanded 2,000 messages/month limit</li>
+                <li className="flex items-center gap-2">✓ Rich Analytics & Lead Classification</li>
               </ul>
             </div>
             <Link 
-              href="/signup" 
+              href="/signup?plan=Growth" 
               className="mt-8 block rounded-lg bg-purple-600 hover:bg-purple-500 text-center py-2.5 text-xs font-semibold text-white transition-colors"
             >
-              Get Started
+              Start Private Beta
             </Link>
           </div>
 
           {/* Plan 3 */}
           <div className="rounded-xl border border-zinc-900 bg-zinc-950 p-6 flex flex-col justify-between relative overflow-hidden">
             <div>
-              <h3 className="text-lg font-bold text-zinc-200">Agency</h3>
-              <p className="mt-2 text-zinc-400 text-xs">For consultants and SaaS resellers.</p>
+              <h3 className="text-lg font-bold text-zinc-200">Managed AI Staff</h3>
+              <p className="mt-2 text-zinc-400 text-xs">For done-for-you corporate setups.</p>
               <div className="mt-4 flex items-baseline gap-1">
-                <span className="text-3xl font-extrabold text-white">$399</span>
+                <span className="text-3xl font-extrabold text-white">$390</span>
                 <span className="text-zinc-500 text-xs">/month</span>
               </div>
               <ul className="mt-6 space-y-3 text-xs text-zinc-400 border-t border-zinc-900 pt-6">
-                <li className="flex items-center gap-2">✓ Unlimited client workspaces</li>
-                <li className="flex items-center gap-2">✓ Custom margins & white-label ready</li>
-                <li className="flex items-center gap-2">✓ Direct api key access and logs</li>
+                <li className="flex items-center gap-2">✓ Done-for-you setup & ingestion</li>
+                <li className="flex items-center gap-2">✓ Monthly training review & optimization</li>
+                <li className="flex items-center gap-2">✓ Dedicated account manager</li>
+                <li className="flex items-center gap-2">✓ Generous 10,000 messages/month limit</li>
+                <li className="flex items-center gap-2">✓ Direct administrative support & SLA</li>
               </ul>
             </div>
             <Link 
-              href="/signup" 
+              href="/signup?plan=Managed" 
               className="mt-8 block rounded-lg bg-zinc-900 border border-zinc-800 text-center py-2.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition-colors"
             >
-              Get Started
+              Start Private Beta
             </Link>
           </div>
         </div>

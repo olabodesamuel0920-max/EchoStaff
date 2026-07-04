@@ -110,6 +110,33 @@ export async function POST(req: NextRequest) {
           );
         }
       }
+
+      // Query workspace details to enforce usage limits and billing gates
+      const { data: workspace, error: wsError } = await supabaseAdmin
+        .from("workspaces")
+        .select("plan, billing_status, monthly_message_limit, current_month_message_count")
+        .eq("id", workspaceId)
+        .single();
+
+      if (wsError || !workspace) {
+        return NextResponse.json({ error: "Workspace not found or inactive." }, { status: 404 });
+      }
+
+      const isOverdueOrCancelled = workspace.billing_status === "overdue" || workspace.billing_status === "cancelled";
+      const isLimitExceeded = workspace.current_month_message_count !== undefined && 
+                              workspace.monthly_message_limit !== undefined && 
+                              workspace.current_month_message_count >= workspace.monthly_message_limit;
+
+      if (isOverdueOrCancelled || isLimitExceeded) {
+        return NextResponse.json({
+          reply: "This assistant is temporarily unavailable. Please contact the business directly through their official website or WhatsApp channel.",
+          detectedIntent: "limit exceeded",
+          suggestedLeadStatus: "Cold",
+          suggestedFollowUp: false,
+          confidenceScore: 1.0,
+          sessionId,
+        });
+      }
     }
 
     // 5. Load workspace, brain, and agent
@@ -218,6 +245,14 @@ export async function POST(req: NextRequest) {
             suggestedFollowUp: result.suggestedFollowUp,
           }
         });
+
+        // Increment message count atomically using the database RPC
+        const { error: rpcError } = await supabaseAdmin.rpc("increment_workspace_message_count", {
+          workspace_uuid: workspaceId
+        });
+        if (rpcError) {
+          console.error("Widget API: Failed to increment message count via RPC:", rpcError);
+        }
       } catch (dbErr) {
         console.error("Widget API: Failed to sync conversation to Supabase:", dbErr);
       }

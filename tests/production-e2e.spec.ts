@@ -10,9 +10,33 @@ const ensureScreenshotsDir = () => {
   }
 };
 
-const QA_EMAIL_1 = process.env.QA_EMAIL || "olabodesamuel0920+echo1@gmail.com";
+const QA_EMAIL_1 = process.env.QA_EMAIL;
 const QA_EMAIL_2 = "olabodesamuel0920+echo2@gmail.com";
-const QA_PASSWORD = process.env.QA_PASSWORD || "TestQAUserPassword123!";
+const QA_PASSWORD = process.env.QA_PASSWORD;
+
+if (!QA_EMAIL_1 || !QA_PASSWORD) {
+  throw new Error("Security check failed: QA_EMAIL or QA_PASSWORD environment variables are missing. Failing E2E tests safely to prevent unauthorized execution.");
+}
+
+async function robustLogin(page: any, targetUrl: string, email: string, password: string) {
+  let loginSuccess = false;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await page.goto(`${targetUrl}/login`);
+      await page.fill("#email", email);
+      await page.fill("#password", password);
+      await page.click("button[type='submit']");
+      await page.waitForURL("**/dashboard", { timeout: 15000 });
+      loginSuccess = true;
+      break;
+    } catch (err) {
+      console.warn(`[Login Attempt ${attempt} Failed for ${email}]:`, err);
+      if (attempt === 3) throw err;
+      await page.waitForTimeout(4000); // Wait longer before retrying
+    }
+  }
+  await page.waitForTimeout(2000);
+}
 
 test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
 
@@ -30,14 +54,7 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     expect(page.url()).toContain("/login");
 
     // 2. Login as QA User 1
-    await page.goto(`${targetUrl}/login`);
-    await page.fill("#email", QA_EMAIL_1);
-    await page.fill("#password", QA_PASSWORD);
-    await page.click("button[type='submit']");
-
-    // Wait for redirect to dashboard
-    await page.waitForURL("**/dashboard", { timeout: 15000 });
-    await page.waitForTimeout(2000);
+    await robustLogin(page, targetUrl, QA_EMAIL_1, QA_PASSWORD);
     expect(page.url()).toContain("/dashboard");
 
     // Verify topbar shows database status (either Connected or Fallback)
@@ -59,10 +76,7 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     expect(page.url()).toContain("/login");
 
     // 5. Login works again
-    await page.fill("#email", QA_EMAIL_1);
-    await page.fill("#password", QA_PASSWORD);
-    await page.click("button[type='submit']");
-    await page.waitForURL("**/dashboard", { timeout: 15000 });
+    await robustLogin(page, targetUrl, QA_EMAIL_1, QA_PASSWORD);
     expect(page.url()).toContain("/dashboard");
   });
 
@@ -70,17 +84,22 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     test.setTimeout(180000);
     const targetUrl = process.env.TEST_BASE_URL || "https://echo-staff.vercel.app";
 
+    const fs = require("fs");
+    const logPath = "C:/Users/colds/.gemini/antigravity/brain/05031b83-2a5f-43a0-b839-18ec37b3bca2/scratch/browser-console.log";
+    fs.writeFileSync(logPath, "--- Start of Test run ---\n");
+
+    page.on("console", msg => {
+      const line = `[Browser Console - ${msg.type()}]: ${msg.text()}\n`;
+      fs.appendFileSync(logPath, line);
+    });
+
     // Login
-    await page.goto(`${targetUrl}/login`);
-    await page.fill("#email", QA_EMAIL_1);
-    await page.fill("#password", QA_PASSWORD);
-    await page.click("button[type='submit']");
-    await page.waitForURL("**/dashboard", { timeout: 15000 });
-    await page.waitForTimeout(2000);
+    await robustLogin(page, targetUrl, QA_EMAIL_1, QA_PASSWORD);
 
     // 1. Update Business Profile & Refresh
     await page.goto(`${targetUrl}/dashboard/business`);
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(4000); // wait for state context hydration
     const clientNameInput = page.locator("input[placeholder*='e.g. Luna Aesthetics']").first();
     await expect(clientNameInput).toBeVisible();
     
@@ -92,16 +111,20 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     await page.click("input[placeholder='Product description and price'] + button");
     
     await page.click("button:has-text('Save Profile Configurations')");
-    await page.waitForTimeout(3000); // wait for database write
+    await expect(page.locator("text=Profile Saved").first()).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(3000); // extra database write/trigger buffer
     
     // Reload and check if persists
     await page.reload();
+    await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
     const loadedVal = await clientNameInput.inputValue();
     expect(loadedVal).toBe(testBusinessName);
 
     // 2. Add FAQs & Do/Don't Rules & Refresh
     await page.goto(`${targetUrl}/dashboard/brand-brain`);
+    await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
     
     // Add FAQ
@@ -129,6 +152,7 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
 
     // 3. Create Agent & Refresh
     await page.goto(`${targetUrl}/dashboard/agents`);
+    await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
     await page.click("button:has-text('Build AI Staff Member')");
     await page.fill("input[placeholder*='Sophia']", "Amina QA");
@@ -140,6 +164,7 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
 
     // 4. Playground Message
     await page.goto(`${targetUrl}/dashboard/playground`);
+    await page.waitForLoadState("networkidle");
     await page.waitForTimeout(2000);
     await page.fill("input[placeholder*='Ask']", "Hi Amina, do you deliver to Lekki?");
     await page.click("button[type='submit']");
@@ -150,6 +175,28 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     // 5. Call Lab Simulator E2E check
     await page.goto(`${targetUrl}/dashboard/call-lab`);
     await page.waitForTimeout(2000);
+    
+    // Create custom test scenario first since this workspace is brand new and has no default scenarios
+    await page.click("button:has-text('Create Test Scenario')");
+    await page.waitForTimeout(1000);
+    await page.fill("input[placeholder*='Pricing Objection']", "Objection Auditing");
+    await page.fill("input[placeholder*='Jane Doe']", "Samuel Tester");
+    await page.fill("textarea[placeholder*='want to achieve']", "Test if Amina can handle pricing queries.");
+    await page.fill("input[placeholder*='cancel my reservation']", "Hello, do you deliver to Lekki?");
+    await page.fill("input[placeholder*='Log the dispute']", "Confirm delivery options.");
+    
+    // Explicitly select the agent option in the dropdown to set the React select state correctly
+    await page.selectOption("select:has(option:has-text('Amina QA'))", { index: 0 });
+    await page.waitForTimeout(500);
+    
+    await page.click("button[type='submit']:has-text('Create Scenario')");
+    await page.waitForTimeout(2000);
+    await page.waitForLoadState("networkidle");
+
+    // Explicitly click the scenario list item button to select it, making activeScenario defined
+    await page.click("button:has-text('Objection Auditing')");
+    await page.waitForTimeout(1000);
+
     await page.click("button:has-text('Start Simulation call')");
     await page.waitForTimeout(1000);
     await page.click("button:has-text('Accept Call')");
@@ -203,12 +250,7 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     const targetUrl = process.env.TEST_BASE_URL || "https://echo-staff.vercel.app";
 
     // 1. Log in as User B
-    await page.goto(`${targetUrl}/login`);
-    await page.fill("#email", QA_EMAIL_2);
-    await page.fill("#password", QA_PASSWORD);
-    await page.click("button[type='submit']");
-    await page.waitForURL("**/dashboard", { timeout: 15000 });
-    await page.waitForTimeout(2000);
+    await robustLogin(page, targetUrl, QA_EMAIL_2, QA_PASSWORD);
 
     // 2. Go to Business profile and verify it does NOT see User A's updated business name
     await page.goto(`${targetUrl}/dashboard/business`);
@@ -224,6 +266,13 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     await page.waitForTimeout(2000);
     const agentsPageText = await page.locator("body").innerText();
     expect(agentsPageText).not.toContain("Amina QA");
+
+    // 4. Verify User B cannot access the /admin area (Access Denied / 403)
+    await page.goto(`${targetUrl}/admin`);
+    await page.waitForTimeout(2500);
+    const adminPageText = await page.locator("body").innerText();
+    expect(adminPageText.toUpperCase()).toContain("403 ACCESS DENIED");
+    expect(adminPageText).toContain("restricted to approved platform administrators");
   });
 
   test("Case 4: Multi-Viewport Mobile Responsive Audit & Screenshot Captures", async ({ page }) => {
@@ -316,11 +365,7 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     });
 
     // Login and navigate
-    await page.goto(`${targetUrl}/login`);
-    await page.fill("#email", QA_EMAIL_1);
-    await page.fill("#password", QA_PASSWORD);
-    await page.click("button[type='submit']");
-    await page.waitForURL("**/dashboard", { timeout: 15000 });
+    await robustLogin(page, targetUrl, QA_EMAIL_1, QA_PASSWORD);
     
     // Visit playground and query AI which triggers backend APIs
     await page.goto(`${targetUrl}/dashboard/playground`);

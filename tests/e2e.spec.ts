@@ -20,9 +20,9 @@ test.describe("EchoStaff E2E QA Verification", () => {
     await expect(page.locator("text=Train your brand’s first").first()).toBeVisible();
     
     // Check main buttons
-    const startTrainingBtn = page.locator("text=Start training your AI staff").first();
+    const startTrainingBtn = page.locator("text=Start Private Beta").first();
     await expect(startTrainingBtn).toBeVisible();
-    const viewDemoBtn = page.locator("text=View live demo").first();
+    const viewDemoBtn = page.locator("text=Book Demo").first();
     await expect(viewDemoBtn).toBeVisible();
   });
 
@@ -72,7 +72,7 @@ test.describe("EchoStaff E2E QA Verification", () => {
     // Navigate to dashboard via Sandbox Demo mode
     await page.goto("/", { waitUntil: "networkidle" });
     await page.waitForTimeout(1500); // Wait for page to render fully
-    await page.click("text=View live demo");
+    await page.click("text=Book Demo");
     
     // In database mode, it might redirect to login. We handle both cases.
     await page.waitForTimeout(2500); // Wait for client-side redirect guard to fire
@@ -211,12 +211,13 @@ test.describe("EchoStaff E2E QA Verification", () => {
       { path: "/dashboard/beta", name: "beta" },
       { path: "/dashboard/pilot", name: "pilot" },
       { path: "/dashboard/system-check", name: "system_check" },
+      { path: "/dashboard/onboarding", name: "onboarding" },
       { path: "/admin", name: "admin" },
     ];
 
     // Ensure session is initialized by logging into demo mode first
     await page.goto("/");
-    await page.click("text=View live demo");
+    await page.click("text=Book Demo");
     await page.waitForTimeout(2000);
 
     for (const vp of viewports) {

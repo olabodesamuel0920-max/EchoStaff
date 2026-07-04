@@ -22,8 +22,15 @@ export const mapWorkspace = (db: any): ClientWorkspace => ({
   industry: db.industry || "General",
   agentsCount: 0,
   volume: 0,
-  value: 1200,
+  value: db.plan === "Growth AI Staff" ? 149 : db.plan === "Managed AI Staff" ? 390 : 49,
   trainingStatus: 85,
+  plan: db.plan || "Starter AI Staff",
+  billingStatus: db.billing_status || "trial",
+  trialEndsAt: db.trial_ends_at || null,
+  monthlyMessageLimit: db.monthly_message_limit !== undefined && db.monthly_message_limit !== null ? db.monthly_message_limit : 500,
+  currentMonthMessageCount: db.current_month_message_count !== undefined && db.current_month_message_count !== null ? db.current_month_message_count : 0,
+  usagePeriodStart: db.usage_period_start || null,
+  usagePeriodEnd: db.usage_period_end || null,
 });
 
 export const mapBrandBrain = (db: any): BrandBrain => {
@@ -163,7 +170,7 @@ export interface WorkspaceBundle {
 
 export async function fetchWorkspaces(): Promise<ClientWorkspace[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase.from("workspaces").select("*");
+  const { data, error } = await supabase.from("workspaces").select("*").order("created_at", { ascending: true });
   if (error) {
     console.error("Error fetching workspaces:", error);
     throw new Error(`Failed to fetch workspaces: ${error.message}`);
@@ -392,6 +399,27 @@ export async function updateWorkspace(id: string, name: string, industry: string
   if (error) {
     console.error("Error updating workspace:", error);
     throw new Error(`Failed to update workspace: ${error.message}`);
+  }
+  return mapWorkspace(data);
+}
+
+export async function updateWorkspaceBilling(
+  id: string,
+  plan: string,
+  billingStatus: string,
+  monthlyMessageLimit: number
+) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from("workspaces").update({
+    plan,
+    billing_status: billingStatus,
+    monthly_message_limit: monthlyMessageLimit,
+    updated_at: new Date().toISOString(),
+  }).eq("id", id).select().single();
+
+  if (error) {
+    console.error("Error updating workspace billing:", error);
+    throw new Error(`Failed to update workspace billing: ${error.message}`);
   }
   return mapWorkspace(data);
 }

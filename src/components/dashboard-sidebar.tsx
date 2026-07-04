@@ -21,7 +21,8 @@ import {
   Globe,
   Activity,
   Rocket,
-  Flag
+  Flag,
+  Sparkles
 } from "lucide-react";
 
 interface SidebarProps {
@@ -48,6 +49,7 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) =>
 
   const menuItems = [
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
+    { name: "SaaS Onboarding", href: "/dashboard/onboarding", icon: Sparkles },
     { name: "Business Profile", href: "/dashboard/business", icon: Building },
     { name: "Brand Brain", href: "/dashboard/brand-brain", icon: Brain },
     { name: "AI Staff / Agents", href: "/dashboard/agents", icon: UserCheck },

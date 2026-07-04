@@ -32,7 +32,7 @@ export default function CallLabPage() {
 
   const workspaceAgents = agents.filter(a => a.linkedBrainId === activeWorkspaceId);
   const workspaceScenarios = callScenarios.filter(s => 
-    workspaceAgents.some(a => a.id === s.agentId)
+    s.agentId === activeWorkspaceId || workspaceAgents.some(a => a.id === s.agentId)
   );
 
   const [selectedScenarioId, setSelectedScenarioId] = useState("");
@@ -199,7 +199,7 @@ export default function CallLabPage() {
   }, [activeWorkspaceId, selectedScenarioId]);
 
   const activeScenario = callScenarios.find(s => s.id === selectedScenarioId);
-  const activeAgent = activeScenario ? agents.find(a => a.id === activeScenario.agentId) : null;
+  const activeAgent = activeScenario ? (agents.find(a => a.id === activeScenario.agentId) || workspaceAgents[0]) : null;
   const activeBrain = brandBrains[activeWorkspaceId];
 
   const formatTime = (seconds: number) => {

@@ -32,6 +32,7 @@ import {
   loadWorkspaceBundle,
   createWorkspace,
   updateWorkspace as updateWorkspaceDb,
+  updateWorkspaceBilling as updateWorkspaceBillingDb,
   upsertBrandBrain,
   insertAgent,
   updateAgent as updateAgentDb,
@@ -117,6 +118,7 @@ interface StateContextProps {
   updateWidgetConfig: (config: Omit<WidgetConfig, "id" | "publicKey" | "workspaceId">) => void;
   updateHandoffRules: (name: string, contact: string, rules: string) => void;
   updateWorkspaceDetails: (name: string, industry: string) => void;
+  updateWorkspaceBilling: (id: string, plan: string, status: "trial" | "active" | "overdue" | "cancelled", limit: number) => Promise<void>;
 }
 
 const StateContext = createContext<StateContextProps | undefined>(undefined);
@@ -493,6 +495,33 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       syncToDb(
         () => updateWorkspaceDb(activeWorkspaceId, name, industry),
         "Workspace Details Update"
+      );
+    }
+  };
+
+  const updateWorkspaceBilling = async (
+    id: string,
+    plan: string,
+    billingStatus: "trial" | "active" | "overdue" | "cancelled",
+    monthlyMessageLimit: number
+  ) => {
+    setWorkspaces((prev) =>
+      prev.map((w) =>
+        w.id === id
+          ? {
+              ...w,
+              plan,
+              billingStatus,
+              monthlyMessageLimit,
+              value: plan === "Growth AI Staff" ? 149 : plan === "Managed AI Staff" ? 390 : 49,
+            }
+          : w
+      )
+    );
+    if (shouldUseSupabase) {
+      await syncToDb(
+        () => updateWorkspaceBillingDb(id, plan, billingStatus, monthlyMessageLimit),
+        "Workspace Billing Update"
       );
     }
   };
@@ -1534,6 +1563,7 @@ export const StateProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateWidgetConfig,
         updateHandoffRules,
         updateWorkspaceDetails,
+        updateWorkspaceBilling,
       }}
     >
       {children}

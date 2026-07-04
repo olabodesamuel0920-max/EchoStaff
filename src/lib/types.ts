@@ -76,6 +76,13 @@ export interface ClientWorkspace {
   volume: number;
   value: number; // e.g. monthly contract value
   trainingStatus: number; // percentage (e.g. 85%)
+  plan?: string;
+  billingStatus?: "trial" | "active" | "overdue" | "cancelled";
+  trialEndsAt?: string;
+  monthlyMessageLimit?: number;
+  currentMonthMessageCount?: number;
+  usagePeriodStart?: string;
+  usagePeriodEnd?: string;
 }
 
 export interface SystemStats {
