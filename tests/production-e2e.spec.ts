@@ -340,7 +340,8 @@ test.describe("EchoStaff Production QA & RLS Verification Suite", () => {
     // Wait for hydration: either the 403 text or the user email badge should appear
     await page.waitForFunction(() => {
       const body = document.body.innerText;
-      return body.includes("403 Access Denied") || body.includes("Superuser:");
+      // Match current ("Superuser:") or older ("Superuser Authorized") deployed versions
+      return body.includes("403 Access Denied") || body.includes("Superuser:") || body.includes("Superuser Authorized");
     }, { timeout: 15000 });
     const adminPageText = await page.locator("body").innerText();
     // After hydration, if User B is properly authenticated, admin should show 403
